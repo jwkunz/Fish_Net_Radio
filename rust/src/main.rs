@@ -2,7 +2,7 @@ use std::fs;
 
 use fish_net_radio::{
     modem::{
-        modem_configuration::{DebugLoggingLevel, ModemConfiguration},
+        modem_configuration::ModemConfiguration,
         modem_tx::ModemTX,
     },
     user_interface::*,
@@ -31,7 +31,8 @@ fn main() {
             panic!("Invalid modem configuration")
         }
     }else if args.contains(&String::from("--rx")) {
-        user_interface_rx::rx_loop(modem_configuration.receiver.debug_logging_level);
+        let debug_level = modem_configuration.receiver.debug_logging_level;
+        user_interface_rx::rx_loop(modem_configuration, debug_level);
     }else{
         panic!("Must include either --tx or --rx");
     }

@@ -1,6 +1,6 @@
 use crate::modem::modem_rx::ModemRX;
 use crate::modem::modem_rx_debug::RxDebugEvent;
-use crate::modem::modem_configuration::DebugLoggingLevel;
+use crate::modem::modem_configuration::{DebugLoggingLevel, ModemConfiguration};
 use crate::modem::modem_rx_types::RxMessage;
 use ctrlc;
 use std::sync::{
@@ -10,7 +10,7 @@ use std::sync::{
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub fn rx_loop(debug_level: DebugLoggingLevel) {
+pub fn rx_loop(config: ModemConfiguration, debug_level: DebugLoggingLevel) {
     println!("Starting receive mode (stub). Press Ctrl+C to exit.");
 
     let running = Arc::new(AtomicBool::new(true));
@@ -26,7 +26,7 @@ pub fn rx_loop(debug_level: DebugLoggingLevel) {
 
     let modem_running = running.clone();
     let modem_thread = thread::spawn(move || {
-        let modem = ModemRX::new();
+        let modem = ModemRX::new(config);
         modem.run_with_debug(message_tx, modem_running, Some(debug_tx));
     });
 
@@ -44,7 +44,9 @@ pub fn rx_loop(debug_level: DebugLoggingLevel) {
             }
         }
         while let Ok(event) = debug_rx.try_recv() {
-            print_debug_event(event);
+            if should_print_debug_event(debug_level, &event) {
+                print_debug_event(event);
+            }
         }
     });
 

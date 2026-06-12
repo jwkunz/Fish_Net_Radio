@@ -80,6 +80,7 @@ receiver:
   tracking:
     energy_drop_threshold: 0.10
     drop_rows_required: 4
+  debug_logging_level: "verbose"
 
 payload:
   encoding: "utf-8"

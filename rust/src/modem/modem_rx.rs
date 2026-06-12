@@ -1,6 +1,7 @@
+use crate::modem::modem_configuration::{ModemConfiguration, ReceiverConfig};
 use crate::modem::modem_rx_acquisition::Acquisition;
-use crate::modem::modem_rx_debug::{emit_debug, RxDebugEvent, RxDebugTx, RxStageId};
 use crate::modem::modem_rx_cfar::CfarDetector;
+use crate::modem::modem_rx_debug::{emit_debug, RxDebugEvent, RxDebugTx, RxStageId};
 use crate::modem::modem_rx_demod::Demodulator;
 use crate::modem::modem_rx_fft::FftFrontEnd;
 use crate::modem::modem_rx_image::ImageBuilder;
@@ -8,7 +9,7 @@ use crate::modem::modem_rx_parser::FrameParser;
 use crate::modem::modem_rx_source::RxSource;
 use crate::modem::modem_rx_tracker::Tracker;
 use crate::modem::modem_rx_types::{
-    RawComplexFrame, RxMessage, SymbolStream, TimeFrequencyImage,
+    RawComplexFrame, RxMessage, SpectrumFrame, SymbolStream,
 };
 use lib_jsl::dsp::discrete::stream_operator::StreamOperator;
 use std::sync::{
@@ -18,11 +19,13 @@ use std::sync::{
 use std::thread;
 use std::time::Duration;
 
-pub struct ModemRX;
+pub struct ModemRX {
+    config: ModemConfiguration,
+}
 
 impl ModemRX {
-    pub fn new() -> Self {
-        ModemRX
+    pub fn new(config: ModemConfiguration) -> Self {
+        ModemRX { config }
     }
 
     pub fn run(self, message_tx: mpsc::Sender<RxMessage>, running: Arc<AtomicBool>) {
@@ -35,12 +38,20 @@ impl ModemRX {
         running: Arc<AtomicBool>,
         debug_tx: Option<RxDebugTx>,
     ) {
+        let receiver_config = self.config.receiver.clone();
+
         let (source_tx, fft_rx) = mpsc::channel::<Arc<RawComplexFrame>>();
-        let (fft_tx, search_rx) = mpsc::channel::<Arc<TimeFrequencyImage>>();
+        let (fft_tx, search_rx) = mpsc::channel::<Arc<SpectrumFrame>>();
         let (search_tx, demod_rx) = mpsc::channel::<Arc<SymbolStream>>();
 
         let source_handle = spawn_source_stage(source_tx, running.clone(), debug_tx.clone());
-        let fft_handle = spawn_fft_stage(fft_rx, fft_tx, running.clone(), debug_tx.clone());
+        let fft_handle = spawn_fft_stage(
+            fft_rx,
+            fft_tx,
+            running.clone(),
+            debug_tx.clone(),
+            receiver_config.clone(),
+        );
         let search_handle = spawn_search_stage(search_rx, search_tx, running.clone(), debug_tx.clone());
         let demod_handle = spawn_demod_stage(demod_rx, message_tx, running.clone(), debug_tx);
 
@@ -116,13 +127,13 @@ fn spawn_source_stage(
 
 fn spawn_fft_stage(
     in_rx: mpsc::Receiver<Arc<RawComplexFrame>>,
-    out_tx: mpsc::Sender<Arc<TimeFrequencyImage>>,
+    out_tx: mpsc::Sender<Arc<SpectrumFrame>>,
     running: Arc<AtomicBool>,
     debug_tx: Option<RxDebugTx>,
+    receiver_config: ReceiverConfig,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let mut fft = FftFrontEnd::new();
-        let mut image = ImageBuilder::new();
+        let mut fft = FftFrontEnd::new(receiver_config, debug_tx.clone());
         let mut seq = 0u64;
         emit_debug(
             &debug_tx,
@@ -147,40 +158,24 @@ fn spawn_fft_stage(
                     );
                     if let Ok(Some(spectra)) = fft.process(&[frame]) {
                         for spectrum in spectra {
-                            emit_debug(
-                                &debug_tx,
-                                RxDebugEvent::Snapshot {
-                                    stage: RxStageId::FrontEnd,
-                                    seq,
-                                    label: "spectrum",
-                                    rows: 1,
-                                    cols: spectrum.len(),
-                                },
-                            );
-                            if let Ok(Some(images)) = image.process(&[spectrum]) {
-                                for image_frame in images {
-                                    emit_debug(
-                                        &debug_tx,
-                                        RxDebugEvent::Snapshot {
-                                            stage: RxStageId::FrontEnd,
-                                            seq,
-                                            label: "time_frequency_image",
-                                            rows: image_frame.len(),
-                                            cols: image_frame.first().map(|row| row.len()).unwrap_or(0),
-                                        },
-                                    );
-                                    if out_tx.send(image_frame).is_err() {
-                                        emit_debug(
-                                            &debug_tx,
-                                            RxDebugEvent::Warning {
-                                                stage: RxStageId::FrontEnd,
-                                                seq,
-                                                detail: "downstream closed".to_string(),
-                                            },
-                                        );
-                                        return;
-                                    }
-                                }
+                            if out_tx.send(spectrum).is_err() {
+                                emit_debug(
+                                    &debug_tx,
+                                    RxDebugEvent::Warning {
+                                        stage: RxStageId::FrontEnd,
+                                        seq,
+                                        detail: "downstream closed".to_string(),
+                                    },
+                                );
+                                emit_debug(
+                                    &debug_tx,
+                                    RxDebugEvent::StageStop {
+                                        stage: RxStageId::FrontEnd,
+                                        seq,
+                                        detail: "fft front end stopped".to_string(),
+                                    },
+                                );
+                                return;
                             }
                         }
                     }
@@ -211,12 +206,13 @@ fn spawn_fft_stage(
 }
 
 fn spawn_search_stage(
-    in_rx: mpsc::Receiver<Arc<TimeFrequencyImage>>,
+    in_rx: mpsc::Receiver<Arc<SpectrumFrame>>,
     out_tx: mpsc::Sender<Arc<SymbolStream>>,
     running: Arc<AtomicBool>,
     debug_tx: Option<RxDebugTx>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
+        let mut image_builder = ImageBuilder::new();
         let mut acquisition = Acquisition::new();
         let mut cfar = CfarDetector::new();
         let mut tracker = Tracker::new();
@@ -255,69 +251,74 @@ fn spawn_search_stage(
         );
         while running.load(Ordering::SeqCst) {
             match in_rx.recv_timeout(Duration::from_secs(1)) {
-                Ok(image_frame) => {
+                Ok(spectrum) => {
                     seq += 1;
-                    emit_debug(
-                        &debug_tx,
-                        RxDebugEvent::Metric {
-                            stage: RxStageId::Acquisition,
-                            seq,
-                            name: "input_rows",
-                            value: image_frame.len() as f64,
-                        },
-                    );
-                    if let Ok(Some(acquired)) = acquisition.process(&[image_frame]) {
-                        for image in acquired {
+                    if let Ok(Some(images)) = image_builder.process(&[spectrum]) {
+                        for image_frame in images {
                             emit_debug(
                                 &debug_tx,
                                 RxDebugEvent::Snapshot {
-                                    stage: RxStageId::Acquisition,
+                                    stage: RxStageId::Search,
                                     seq,
-                                    label: "acquisition_output",
-                                    rows: image.len(),
-                                    cols: image.first().map(|row| row.len()).unwrap_or(0),
+                                    label: "time_frequency_image",
+                                    rows: image_frame.len(),
+                                    cols: image_frame.first().map(|row| row.len()).unwrap_or(0),
                                 },
                             );
-                            if let Ok(Some(detections)) = cfar.process(&[image]) {
-                                for image in detections {
+                            if let Ok(Some(acquired)) = acquisition.process(&[image_frame]) {
+                                for image in acquired {
                                     emit_debug(
                                         &debug_tx,
-                                        RxDebugEvent::Metric {
-                                            stage: RxStageId::Cfar,
+                                        RxDebugEvent::Snapshot {
+                                            stage: RxStageId::Acquisition,
                                             seq,
-                                            name: "cfar_image_rows",
-                                            value: image.len() as f64,
+                                            label: "acquisition_output",
+                                            rows: image.len(),
+                                            cols: image.first().map(|row| row.len()).unwrap_or(0),
                                         },
                                     );
-                                    if let Ok(Some(symbols)) = tracker.process(&[image]) {
-                                        for symbol_stream in symbols {
+                                    if let Ok(Some(detections)) = cfar.process(&[image]) {
+                                        for image in detections {
                                             emit_debug(
                                                 &debug_tx,
                                                 RxDebugEvent::Metric {
-                                                    stage: RxStageId::Tracker,
+                                                    stage: RxStageId::Cfar,
                                                     seq,
-                                                    name: "symbol_count",
-                                                    value: symbol_stream.len() as f64,
+                                                    name: "cfar_image_rows",
+                                                    value: image.len() as f64,
                                                 },
                                             );
-                                            if out_tx.send(symbol_stream).is_err() {
-                                                emit_debug(
-                                                    &debug_tx,
-                                                    RxDebugEvent::Warning {
-                                                        stage: RxStageId::Tracker,
-                                                        seq,
-                                                        detail: "downstream closed".to_string(),
-                                                    },
-                                                );
-                                                emit_debug(
-                                                    &debug_tx,
-                                                    RxDebugEvent::StageStop {
-                                                        stage: RxStageId::Search,
-                                                        seq,
-                                                        detail: "search stage stopped".to_string(),
-                                                    },
-                                                );
-                                                return;
+                                            if let Ok(Some(symbols)) = tracker.process(&[image]) {
+                                                for symbol_stream in symbols {
+                                                    emit_debug(
+                                                        &debug_tx,
+                                                        RxDebugEvent::Metric {
+                                                            stage: RxStageId::Tracker,
+                                                            seq,
+                                                            name: "symbol_count",
+                                                            value: symbol_stream.len() as f64,
+                                                        },
+                                                    );
+                                                    if out_tx.send(symbol_stream).is_err() {
+                                                        emit_debug(
+                                                            &debug_tx,
+                                                            RxDebugEvent::Warning {
+                                                                stage: RxStageId::Tracker,
+                                                                seq,
+                                                                detail: "downstream closed".to_string(),
+                                                            },
+                                                        );
+                                                        emit_debug(
+                                                            &debug_tx,
+                                                            RxDebugEvent::StageStop {
+                                                                stage: RxStageId::Search,
+                                                                seq,
+                                                                detail: "search stage stopped".to_string(),
+                                                            },
+                                                        );
+                                                        return;
+                                                    }
+                                                }
                                             }
                                         }
                                     }

@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ModemConfiguration {
     pub name: String,
     pub description: String,
@@ -66,13 +66,13 @@ pub struct PreambleConfig {
     pub length_bytes: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct FramingConfig {
     pub mac: MacConfig,
     pub crc: CrcConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct MacConfig {
     pub destination_length_bytes: usize,
     pub source_length_bytes: usize,
@@ -92,7 +92,7 @@ pub struct CrcConfig {
     pub covers: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ReceiverConfig {
     pub fft_size: usize,
     pub fft_overlap_samples: usize,
@@ -122,46 +122,46 @@ impl Default for DebugLoggingLevel {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct NominalRxBins {
     pub low_block: RxBinBlock,
     pub high_block: RxBinBlock,
     pub description: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RxBinBlock {
     pub start: usize,
     pub end: usize,
     pub step: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct DopplerConfig {
     pub search_bin_range: usize,
     pub search_row_offset: usize,
     pub description: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct CfarConfig {
     pub non_detect_average_rows: usize,
     pub peak_to_average_ratio: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct TrackingConfig {
     pub energy_drop_threshold: f64,
     pub drop_rows_required: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct PayloadConfig {
     pub encoding: String,
     pub interpret_as: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct OutputConfig {
     pub deliver_payload: bool,
     pub include_source_mac: bool,

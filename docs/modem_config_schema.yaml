@@ -84,6 +84,7 @@ receiver:
   tracking:
     energy_drop_threshold: 0.10           # number
     drop_rows_required: 4                 # integer
+  debug_logging_level: "verbose"          # string: off, basic, verbose
 
 payload:
   encoding: "utf-8"                      # string
