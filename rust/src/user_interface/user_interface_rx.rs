@@ -1,4 +1,5 @@
-use crate::modem::modem_rx::{ModemRX, RxMessage};
+use crate::modem::modem_rx::ModemRX;
+use crate::modem::modem_rx_types::RxMessage;
 use ctrlc;
 use std::sync::{atomic::{AtomicBool, Ordering}, mpsc, Arc};
 use std::thread;
@@ -15,18 +16,12 @@ pub fn rx_loop() {
     })
     .expect("Error setting Ctrl+C handler");
 
-    let (raw_tx, raw_rx) = mpsc::channel::<Vec<u8>>();
     let (message_tx, message_rx) = mpsc::channel::<RxMessage>();
-
-    let receiver_running = running.clone();
-    let receiver_thread = thread::spawn(move || {
-        receiver_loop(raw_tx, receiver_running);
-    });
 
     let modem_running = running.clone();
     let modem_thread = thread::spawn(move || {
         let modem = ModemRX::new();
-        modem.run(raw_rx, message_tx, modem_running);
+        modem.run(message_tx, modem_running);
     });
 
     while running.load(Ordering::SeqCst) {
@@ -37,23 +32,8 @@ pub fn rx_loop() {
         }
     }
 
-    let _ = receiver_thread.join();
     let _ = modem_thread.join();
     println!("Receive mode terminated.");
-}
-
-fn receiver_loop(raw_tx: mpsc::Sender<Vec<u8>>, running: Arc<AtomicBool>) {
-    let mut counter = 0u64;
-    while running.load(Ordering::SeqCst) {
-        thread::sleep(Duration::from_secs(5));
-
-        let payload = format!("stub message {}", counter);
-        counter += 1;
-
-        if raw_tx.send(payload.into_bytes()).is_err() {
-            break;
-        }
-    }
 }
 
 fn print_message(message: RxMessage) {
