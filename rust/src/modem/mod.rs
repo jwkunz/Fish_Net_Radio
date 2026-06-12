@@ -8,6 +8,7 @@ pub mod modem_waveform;
 // 2) Search, CFAR, and tracking
 // 3) Demodulation and frame parsing
 pub mod modem_rx;
+pub mod modem_rx_debug;
 pub mod modem_rx_types;
 pub mod modem_rx_source;
 pub mod modem_rx_fft;
