@@ -41,6 +41,8 @@ framing:
     destination_length_bytes: 6           # integer
     source_length_bytes: 6                # integer
     allow_broadcast: true                 # boolean
+    destination_mac: "FF:FF:FF:FF:FF:FF" # string
+    source_mac: "00:11:22:33:44:55"      # string
   crc:
     type: "CRC-32"                      # string
     polynomial: "0x04C11DB7"            # string

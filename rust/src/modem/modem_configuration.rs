@@ -24,7 +24,7 @@ pub struct ModemConfiguration {
     pub notes: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct TransmitterConfig {
     pub ifft_size: usize,
     pub symbol_samples: usize,
@@ -34,19 +34,19 @@ pub struct TransmitterConfig {
     pub preamble: PreambleConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ValidBinBlocks {
     pub low_block: BinBlock,
     pub high_block: BinBlock,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct BinBlock {
     pub start: usize,
     pub end: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct BinMapping {
     pub scheme: String,
     pub low_symbol_range: SymbolRange,
@@ -54,13 +54,13 @@ pub struct BinMapping {
     pub description: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct SymbolRange {
     pub start: usize,
     pub end: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct PreambleConfig {
     pub bytes: Vec<String>,
     pub length_bytes: usize,
@@ -77,9 +77,11 @@ pub struct MacConfig {
     pub destination_length_bytes: usize,
     pub source_length_bytes: usize,
     pub allow_broadcast: bool,
+    pub destination_mac: String,
+    pub source_mac: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct CrcConfig {
     pub r#type: String,
     pub polynomial: String,

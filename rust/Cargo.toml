@@ -8,6 +8,8 @@ lib_jsl = {
     git = "https://github.com/jwkunz/lib_jsl.git"
 }
 num-complex = "0.4.6"
+rustfft = "6.4.1"
+crc = "2.1"
 serde = "1.0.228"
 serde_yaml = "0.9.34"
 tokio = {version="1.52.3",features=["full"]}

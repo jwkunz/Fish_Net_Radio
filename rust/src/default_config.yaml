@@ -37,6 +37,8 @@ framing:
     destination_length_bytes: 6
     source_length_bytes: 6
     allow_broadcast: true
+    destination_mac: "FF:FF:FF:FF:FF:FF"
+    source_mac: "00:11:22:33:44:55"
   crc:
     type: "CRC-32"
     polynomial: "0x04C11DB7"
