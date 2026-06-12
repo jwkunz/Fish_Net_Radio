@@ -1,5 +1,6 @@
 use lib_jsl::dsp::{discrete::stream_operator::*, prelude::ErrorsJSL};
 use crate::modem::modem_rx_types::SymbolStream;
+use std::sync::Arc;
 
 pub struct Demodulator;
 
@@ -19,13 +20,13 @@ impl StreamOperatorManagement for Demodulator {
     }
 }
 
-impl StreamOperator<SymbolStream, SymbolStream> for Demodulator {
-    fn flush(&mut self) -> Result<Option<Vec<SymbolStream>>, ErrorsJSL> {
+impl StreamOperator<Arc<SymbolStream>, Arc<SymbolStream>> for Demodulator {
+    fn flush(&mut self) -> Result<Option<Vec<Arc<SymbolStream>>>, ErrorsJSL> {
         Ok(None)
     }
 
-    fn process(&mut self, data_in: &[SymbolStream]) -> Result<Option<Vec<SymbolStream>>, ErrorsJSL> {
-        let symbols = data_in.first().cloned().unwrap_or_default();
-        Ok(Some(vec![symbols]))
+    fn process(&mut self, data_in: &[Arc<SymbolStream>]) -> Result<Option<Vec<Arc<SymbolStream>>>, ErrorsJSL> {
+        let symbols = data_in.first().map(|a| (&**a).clone()).unwrap_or_default();
+        Ok(Some(vec![Arc::new(symbols)]))
     }
 }

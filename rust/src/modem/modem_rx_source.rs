@@ -1,5 +1,6 @@
 use lib_jsl::dsp::{discrete::stream_operator::*, prelude::ErrorsJSL};
 use num_complex::Complex;
+use std::sync::Arc;
 use crate::modem::modem_rx_types::RawComplexFrame;
 
 pub struct RxSource {
@@ -22,12 +23,12 @@ impl StreamOperatorManagement for RxSource {
     }
 }
 
-impl StreamOperator<(), RawComplexFrame> for RxSource {
-    fn flush(&mut self) -> Result<Option<Vec<RawComplexFrame>>, ErrorsJSL> {
+impl StreamOperator<(), Arc<RawComplexFrame>> for RxSource {
+    fn flush(&mut self) -> Result<Option<Vec<Arc<RawComplexFrame>>>, ErrorsJSL> {
         Ok(None)
     }
 
-    fn process(&mut self, _: &[()]) -> Result<Option<Vec<RawComplexFrame>>, ErrorsJSL> {
+    fn process(&mut self, _: &[()]) -> Result<Option<Vec<Arc<RawComplexFrame>>>, ErrorsJSL> {
         self.counter += 1;
         let frame_len = 512;
         let mut frame = Vec::with_capacity(frame_len);
@@ -35,6 +36,6 @@ impl StreamOperator<(), RawComplexFrame> for RxSource {
             let phase = (i as f32) * 2.0 * std::f32::consts::PI / frame_len as f32;
             frame.push(Complex::new((phase).cos(), (phase).sin()));
         }
-        Ok(Some(vec![frame]))
+        Ok(Some(vec![Arc::new(frame)]))
     }
 }

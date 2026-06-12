@@ -1,5 +1,6 @@
 use lib_jsl::dsp::{discrete::stream_operator::*, prelude::ErrorsJSL};
 use crate::modem::modem_rx_types::{SpectrumFrame, TimeFrequencyImage};
+use std::sync::Arc;
 
 pub struct ImageBuilder;
 
@@ -19,13 +20,14 @@ impl StreamOperatorManagement for ImageBuilder {
     }
 }
 
-impl StreamOperator<SpectrumFrame, TimeFrequencyImage> for ImageBuilder {
-    fn flush(&mut self) -> Result<Option<Vec<TimeFrequencyImage>>, ErrorsJSL> {
+impl StreamOperator<Arc<SpectrumFrame>, Arc<TimeFrequencyImage>> for ImageBuilder {
+    fn flush(&mut self) -> Result<Option<Vec<Arc<TimeFrequencyImage>>>, ErrorsJSL> {
         Ok(None)
     }
 
-    fn process(&mut self, data_in: &[SpectrumFrame]) -> Result<Option<Vec<TimeFrequencyImage>>, ErrorsJSL> {
-        let spectrum = data_in.first().cloned().unwrap_or_default();
-        Ok(Some(vec![vec![spectrum]]))
+    fn process(&mut self, data_in: &[Arc<SpectrumFrame>]) -> Result<Option<Vec<Arc<TimeFrequencyImage>>>, ErrorsJSL> {
+        let spectrum = data_in.first().map(|a| (&**a).clone()).unwrap_or_default();
+        let image: TimeFrequencyImage = vec![spectrum];
+        Ok(Some(vec![Arc::new(image)]))
     }
 }

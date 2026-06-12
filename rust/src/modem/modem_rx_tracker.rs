@@ -1,5 +1,6 @@
 use lib_jsl::dsp::{discrete::stream_operator::*, prelude::ErrorsJSL};
 use crate::modem::modem_rx_types::{TimeFrequencyImage, SymbolStream};
+use std::sync::Arc;
 
 pub struct Tracker;
 
@@ -19,13 +20,13 @@ impl StreamOperatorManagement for Tracker {
     }
 }
 
-impl StreamOperator<TimeFrequencyImage, SymbolStream> for Tracker {
-    fn flush(&mut self) -> Result<Option<Vec<SymbolStream>>, ErrorsJSL> {
+impl StreamOperator<Arc<TimeFrequencyImage>, Arc<SymbolStream>> for Tracker {
+    fn flush(&mut self) -> Result<Option<Vec<Arc<SymbolStream>>>, ErrorsJSL> {
         Ok(None)
     }
 
-    fn process(&mut self, data_in: &[TimeFrequencyImage]) -> Result<Option<Vec<SymbolStream>>, ErrorsJSL> {
+    fn process(&mut self, data_in: &[Arc<TimeFrequencyImage>]) -> Result<Option<Vec<Arc<SymbolStream>>>, ErrorsJSL> {
         let _ = data_in.first();
-        Ok(Some(vec![vec![0u8]]))
+        Ok(Some(vec![Arc::new(vec![0u8])]))
     }
 }

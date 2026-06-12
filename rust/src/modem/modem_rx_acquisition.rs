@@ -1,5 +1,6 @@
 use lib_jsl::dsp::{discrete::stream_operator::*, prelude::ErrorsJSL};
 use crate::modem::modem_rx_types::{TimeFrequencyImage};
+use std::sync::Arc;
 
 pub struct Acquisition;
 
@@ -19,13 +20,13 @@ impl StreamOperatorManagement for Acquisition {
     }
 }
 
-impl StreamOperator<TimeFrequencyImage, TimeFrequencyImage> for Acquisition {
-    fn flush(&mut self) -> Result<Option<Vec<TimeFrequencyImage>>, ErrorsJSL> {
+impl StreamOperator<Arc<TimeFrequencyImage>, Arc<TimeFrequencyImage>> for Acquisition {
+    fn flush(&mut self) -> Result<Option<Vec<Arc<TimeFrequencyImage>>>, ErrorsJSL> {
         Ok(None)
     }
 
-    fn process(&mut self, data_in: &[TimeFrequencyImage]) -> Result<Option<Vec<TimeFrequencyImage>>, ErrorsJSL> {
-        let image = data_in.first().cloned().unwrap_or_default();
-        Ok(Some(vec![image]))
+    fn process(&mut self, data_in: &[Arc<TimeFrequencyImage>]) -> Result<Option<Vec<Arc<TimeFrequencyImage>>>, ErrorsJSL> {
+        let image = data_in.first().map(|a| (&**a).clone()).unwrap_or_default();
+        Ok(Some(vec![Arc::new(image)]))
     }
 }
