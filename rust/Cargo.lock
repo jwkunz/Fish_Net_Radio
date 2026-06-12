@@ -3,21 +3,6 @@
 version = 4
 
 [[package]]
-name = "FishNetModem"
-version = "0.1.0"
-dependencies = [
- "crc",
- "ctrlc",
- "lib_jsl",
- "num-complex",
- "rustfft",
- "serde",
- "serde_yaml",
- "tokio",
- "zmq",
-]
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -304,6 +289,21 @@ name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+
+[[package]]
+name = "fish_net_radio"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "ctrlc",
+ "lib_jsl",
+ "num-complex",
+ "rustfft",
+ "serde",
+ "serde_yaml",
+ "tokio",
+ "zmq",
+]
 
 [[package]]
 name = "flate2"

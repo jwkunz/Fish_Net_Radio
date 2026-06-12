@@ -104,6 +104,22 @@ pub struct ReceiverConfig {
     pub doppler: DopplerConfig,
     pub cfar: CfarConfig,
     pub tracking: TrackingConfig,
+    #[serde(default)]
+    pub debug_logging_level: DebugLoggingLevel,
+}
+
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DebugLoggingLevel {
+    Off,
+    Basic,
+    Verbose,
+}
+
+impl Default for DebugLoggingLevel {
+    fn default() -> Self {
+        DebugLoggingLevel::Verbose
+    }
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,6 +1,12 @@
 use std::fs;
 
-use FishNetModem::{modem::{modem_configuration::ModemConfiguration, modem_tx::ModemTX}, user_interface::*};
+use fish_net_radio::{
+    modem::{
+        modem_configuration::{DebugLoggingLevel, ModemConfiguration},
+        modem_tx::ModemTX,
+    },
+    user_interface::*,
+};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -25,7 +31,7 @@ fn main() {
             panic!("Invalid modem configuration")
         }
     }else if args.contains(&String::from("--rx")) {
-        user_interface_rx::rx_loop();        
+        user_interface_rx::rx_loop(modem_configuration.receiver.debug_logging_level);
     }else{
         panic!("Must include either --tx or --rx");
     }

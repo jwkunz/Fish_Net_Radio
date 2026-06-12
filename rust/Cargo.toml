@@ -1,5 +1,5 @@
 [package]
-name = "FishNetModem"
+name = "fish_net_radio"
 version = "0.1.0"
 edition = "2024"
 
