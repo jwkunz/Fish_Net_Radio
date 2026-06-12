@@ -5,10 +5,12 @@ use FishNetModem::{modem::{modem_configuration::ModemConfiguration, modem_tx::Mo
 fn main() {
     let args : Vec<String> = std::env::args().collect();
 
-    let config_file : String = if let Some(position) = args.iter().position(|x| x==&String::from("--config")){
+    let config_file: String = if let Some(position) = args.iter().position(|x| x==&String::from("--config")){
         args[position+1].clone()
-    }else{
-        "default_config.yaml".to_string()
+    } else {
+        let mut default_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        default_path.push("src/default_config.yaml");
+        default_path.to_string_lossy().to_string()
     };
 
     let modem_configuration : ModemConfiguration = serde_yaml::from_str(&fs::read_to_string(config_file).expect("The configuration file was not found")).expect("The modem configuration did not parse correctly");

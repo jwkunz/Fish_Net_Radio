@@ -1,0 +1,90 @@
+name: "FishNet Radio Modem v2"
+description: "256-FSK modem with Ethernet-II-like frame encapsulation"
+sample_rate_hz: 1000000
+bits_per_symbol: 8
+symbol_duration_samples: 512
+raw_data_rate_bps: 15625
+spectral_efficiency: 0.058824
+gnuradio_instance_address_tx: "127.0.0.1"
+gnuradio_instance_port_tx: "20002"
+
+transmitter:
+  ifft_size: 512
+  symbol_samples: 512
+  output_format: "complex_f32"
+  valid_bins:
+    low_block:
+      start: 8
+      end: 135
+    high_block:
+      start: 376
+      end: 503
+  bin_mapping:
+    scheme: "contiguous"
+    low_symbol_range:
+      start: 0
+      end: 127
+    high_symbol_range:
+      start: 128
+      end: 255
+    description: "Symbol values 0..127 map to low block, 128..255 map to high block"
+  preamble:
+    bytes: ["F", "i", "S", "h", "N", "e", "T", ":"]
+    length_bytes: 8
+
+framing:
+  mac:
+    destination_length_bytes: 6
+    source_length_bytes: 6
+    allow_broadcast: true
+  crc:
+    type: "CRC-32"
+    polynomial: "0x04C11DB7"
+    init: "0xFFFFFFFF"
+    xor_out: "0xFFFFFFFF"
+    reflect_in: true
+    reflect_out: true
+    covers:
+      - destination_mac
+      - source_mac
+      - payload
+
+receiver:
+  fft_size: 2048
+  fft_overlap_samples: 1024
+  symbol_rows: 4
+  preamble_rows: 32
+  search_buffer_rows: 36
+  discard_bins:
+    - start: 144
+      end: 367
+  nominal_rx_bins:
+    low_block:
+      start: 32
+      end: 540
+      step: 4
+    high_block:
+      start: 1504
+      end: 2012
+      step: 4
+    description: "Nominal RX bin positions for a 2048-pt FFT before doppler correction"
+  doppler:
+    search_bin_range: 8
+    search_row_offset: 4
+    description: "Receiver refines the nominal bin positions after doppler and timing are discovered"
+  cfar:
+    non_detect_average_rows: 3200
+    peak_to_average_ratio: 10
+  tracking:
+    energy_drop_threshold: 0.10
+    drop_rows_required: 4
+
+payload:
+  encoding: "utf-8"
+  interpret_as: "string"
+
+output:
+  deliver_payload: true
+  include_source_mac: true
+  validate_destination_mac: true
+  allow_broadcast: true

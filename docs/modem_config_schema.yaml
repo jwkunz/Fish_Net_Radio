@@ -2,14 +2,15 @@
 # This schema describes all parameters required to initialize the modem.
 # Use this file as a template for modem configuration YAML files.
 
-modem:
-  name: "FishNet Radio Modem v2"          # string
-  description: "256-FSK modem with EthernetII-like frame encapsulation"
-  sample_rate_hz: 1000000                  # number
-  bits_per_symbol: 8                       # integer
-  symbol_duration_samples: 512            # integer
-  raw_data_rate_bps: 15625                 # number
-  spectral_efficiency: 0.058824            # number
+name: "FishNet Radio Modem v2"          # string
+description: "256-FSK modem with EthernetII-like frame encapsulation"
+sample_rate_hz: 1000000                  # number
+bits_per_symbol: 8                       # integer
+symbol_duration_samples: 512            # integer
+raw_data_rate_bps: 15625                 # number
+spectral_efficiency: 0.058824            # number
+gnuradio_instance_address_tx: "127.0.0.1" # string
+gnuradio_instance_port_tx: "20002"       # string
 
 transmitter:
   ifft_size: 512                           # integer

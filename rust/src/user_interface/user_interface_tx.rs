@@ -77,7 +77,7 @@ pub fn tx_loop(modem: &mut ModemTX) {
                 if !running.load(Ordering::SeqCst) {
                     break;
                 }
-                let n_fill = modem.config.sample_rate.ceil() as usize;
+                let n_fill = modem.config.sample_rate_hz.ceil() as usize;
                 let pad = vec![Complex::<f32>::from(0.01); n_fill];
                 push_socket
                     .process(&pad)
