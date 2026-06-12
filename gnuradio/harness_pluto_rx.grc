@@ -1,0 +1,352 @@
+options:
+  parameters:
+    author: Jakob Kunzler
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: ''
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: qt_gui
+    hier_block_src_path: '.:'
+    id: harness_pluto_rx
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: prompt
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: Harness of ADALM Pluto RX
+    window_size: (1000,1000)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [8, 8]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: center_frequency
+  id: qtgui_msgdigitalnumbercontrol
+  parameters:
+    ThousandsSeparator: ','
+    affinity: ''
+    alias: ''
+    comment: ''
+    gui_hint: 0,4,1,1
+    lbl: Carrier Frequency
+    maxFreqHz: 928E6
+    maxoutbuf: '0'
+    minFreqHz: 902E6
+    minoutbuf: '0'
+    outputmsgname: freq
+    readOnly: 'False'
+    relBackgroundColor: black
+    relFontColor: white
+    value: 915E6
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [344, 8.0]
+    rotation: 0
+    state: enabled
+- name: enable_agc
+  id: variable_qtgui_toggle_switch
+  parameters:
+    cellalignment: '1'
+    comment: ''
+    gui_hint: 0,1,1,1
+    initPressed: 'True'
+    label: Enable AGC
+    outputmsgname: value
+    position: '4'
+    pressed: '0'
+    released: '1'
+    switchOffBackground: gray
+    switchOnBackground: green
+    type: int
+    value: '0'
+    verticalalignment: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [848, 24.0]
+    rotation: 0
+    state: enabled
+- name: enable_rx
+  id: variable_qtgui_toggle_switch
+  parameters:
+    cellalignment: '1'
+    comment: ''
+    gui_hint: 0,0,1,1
+    initPressed: 'True'
+    label: Enable GUI
+    outputmsgname: value
+    position: '4'
+    pressed: '1'
+    released: '0'
+    switchOffBackground: gray
+    switchOnBackground: green
+    type: int
+    value: '1'
+    verticalalignment: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [648, 24.0]
+    rotation: 0
+    state: enabled
+- name: enable_zmq
+  id: variable_qtgui_toggle_switch
+  parameters:
+    cellalignment: '1'
+    comment: ''
+    gui_hint: 0,3,1,1
+    initPressed: 'False'
+    label: f"Enable ZMQ Port {zmq_base_port+zmq_push_offset}"
+    outputmsgname: value
+    position: '4'
+    pressed: '1'
+    released: '0'
+    switchOffBackground: gray
+    switchOnBackground: green
+    type: int
+    value: '0'
+    verticalalignment: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [632, 168.0]
+    rotation: 0
+    state: enabled
+- name: radio_gain_db
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: 0,2,1,1
+    label: Radio Gain (dB)
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '0'
+    step: '3'
+    stop: '73'
+    value: '20'
+    widget: counter_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1064, 96.0]
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: int(2E6)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [200, 12]
+    rotation: 0
+    state: enabled
+- name: zmq_base_port
+  id: variable
+  parameters:
+    comment: ''
+    value: '20000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1192, 32.0]
+    rotation: 0
+    state: enabled
+- name: zmq_push_offset
+  id: variable
+  parameters:
+    comment: ''
+    value: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1320, 32.0]
+    rotation: 0
+    state: enabled
+- name: blocks_null_sink_0_0_0
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    bus_structure_sink: '[[0,],]'
+    comment: ''
+    num_inputs: '1'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [832, 608.0]
+    rotation: 0
+    state: enabled
+- name: blocks_null_sink_0_1
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    bus_structure_sink: '[[0,],]'
+    comment: ''
+    num_inputs: '1'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [856, 360.0]
+    rotation: 0
+    state: enabled
+- name: blocks_selector_0_0_0
+  id: blocks_selector
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    enabled: 'True'
+    input_index: '0'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '1'
+    num_outputs: '2'
+    output_index: enable_zmq
+    showports: 'True'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [616, 584.0]
+    rotation: 0
+    state: enabled
+- name: blocks_selector_0_1
+  id: blocks_selector
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    enabled: 'True'
+    input_index: '0'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '1'
+    num_outputs: '2'
+    output_index: enable_rx
+    showports: 'True'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [616, 456.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_sink_x_0_0
+  id: qtgui_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    bw: samp_rate
+    comment: ''
+    fc: center_frequency
+    fftsize: '1024'
+    gui_hint: 1,0,4,5
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    name: '"ADALM Pluto Receiver"'
+    plotconst: 'True'
+    plotfreq: 'True'
+    plottime: 'True'
+    plotwaterfall: 'True'
+    rate: '10'
+    showports: 'False'
+    showrf: 'True'
+    type: complex
+    wintype: window.WIN_BLACKMAN_hARRIS
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [888, 408.0]
+    rotation: 0
+    state: enabled
+- name: soapy_plutosdr_source_0
+  id: soapy_plutosdr_source
+  parameters:
+    affinity: ''
+    agc: enable_agc
+    alias: ''
+    bandwidth: '0.0'
+    center_freq: center_frequency
+    comment: ''
+    dev_args: 192.168.2.1
+    gain: radio_gain_db
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    samp_rate: samp_rate
+    type: fc32
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [152, 472.0]
+    rotation: 0
+    state: enabled
+- name: zeromq_push_sink_0_0
+  id: zeromq_push_sink
+  parameters:
+    address: f"tcp://127.0.0.1:{zmq_base_port+zmq_push_offset}"
+    affinity: ''
+    alias: ''
+    bind: 'True'
+    comment: ''
+    hwm: '-1'
+    pass_tags: 'False'
+    timeout: '100'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [824, 656.0]
+    rotation: 0
+    state: enabled
+
+connections:
+- [blocks_selector_0_0_0, '0', blocks_null_sink_0_0_0, '0']
+- [blocks_selector_0_0_0, '1', zeromq_push_sink_0_0, '0']
+- [blocks_selector_0_1, '0', blocks_null_sink_0_1, '0']
+- [blocks_selector_0_1, '1', qtgui_sink_x_0_0, '0']
+- [soapy_plutosdr_source_0, '0', blocks_selector_0_0_0, '0']
+- [soapy_plutosdr_source_0, '0', blocks_selector_0_1, '0']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.12.0

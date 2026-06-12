@@ -1,0 +1,98 @@
+# FishNet Radio Modem v2 configuration schema
+# This schema describes all parameters required to initialize the modem.
+# Use this file as a template for modem configuration YAML files.
+
+modem:
+  name: "FishNet Radio Modem v2"          # string
+  description: "256-FSK modem with EthernetII-like frame encapsulation"
+  sample_rate_hz: 1000000                  # number
+  bits_per_symbol: 8                       # integer
+  symbol_duration_samples: 512            # integer
+  raw_data_rate_bps: 15625                 # number
+  spectral_efficiency: 0.058824            # number
+
+transmitter:
+  ifft_size: 512                           # integer
+  symbol_samples: 512                     # integer
+  output_format: "complex_f32"           # string
+  valid_bins:
+    low_block:
+      start: 8                            # integer
+      end: 135                            # integer
+    high_block:
+      start: 376                          # integer
+      end: 503                            # integer
+  bin_mapping:
+    scheme: "contiguous"                # string, e.g. contiguous, custom
+    low_symbol_range:
+      start: 0                            # integer
+      end: 127                            # integer
+    high_symbol_range:
+      start: 128                          # integer
+      end: 255                            # integer
+    description: "Symbol values 0..127 map to low block, 128..255 map to high block"
+  preamble:
+    bytes: ["F", "i", "S", "h", "N", "e", "T", ":"]
+    length_bytes: 8                       # integer
+
+framing:
+  mac:
+    destination_length_bytes: 6           # integer
+    source_length_bytes: 6                # integer
+    allow_broadcast: true                 # boolean
+  crc:
+    type: "CRC-32"                      # string
+    polynomial: "0x04C11DB7"            # string
+    init: "0xFFFFFFFF"                 # string
+    xor_out: "0xFFFFFFFF"              # string
+    reflect_in: true                     # boolean
+    reflect_out: true                    # boolean
+    covers:
+      - destination_mac
+      - source_mac
+      - payload
+
+receiver:
+  fft_size: 2048                           # integer
+  fft_overlap_samples: 1024               # integer, example overlap amount
+  symbol_rows: 4                           # integer
+  preamble_rows: 32                        # integer
+  search_buffer_rows: 36                   # integer
+  discard_bins:
+    - start: 144                          # integer
+      end: 367                            # integer
+  nominal_rx_bins:
+    low_block:
+      start: 32                           # integer
+      end: 540                            # integer
+      step: 4                             # integer
+    high_block:
+      start: 1504                         # integer
+      end: 2012                           # integer
+      step: 4                             # integer
+    description: "Nominal RX bin positions for a 2048-pt FFT before doppler correction"
+  doppler:
+    search_bin_range: 8                   # integer
+    search_row_offset: 4                  # integer
+    description: "Receiver refines the nominal bin positions after doppler and timing are discovered"
+  cfar:
+    non_detect_average_rows: 3200         # integer
+    peak_to_average_ratio: 10             # integer
+  tracking:
+    energy_drop_threshold: 0.10           # number
+    drop_rows_required: 4                 # integer
+
+payload:
+  encoding: "utf-8"                      # string
+  interpret_as: "string"                # string
+
+output:
+  deliver_payload: true                   # boolean
+  include_source_mac: true                # boolean
+  validate_destination_mac: true          # boolean
+  allow_broadcast: true                   # boolean
+
+notes:
+  - "TX uses a 512-point IFFT."
+  - "RX uses a 2048-point FFT with overlap to resolve doppler shifts."
+  - "TX bin values map to RX nominal bins by multiplying the TX bin index by 4 in the 2048 grid."

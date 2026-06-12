@@ -1,0 +1,717 @@
+options:
+  parameters:
+    author: Jakob Kunzler
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: ''
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: qt_gui
+    hier_block_src_path: '.:'
+    id: harness_pluto_tx
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: prompt
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: Harness of ADALM Pluto TX
+    window_size: (1000,1000)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [8, 8]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: center_frequency
+  id: qtgui_msgdigitalnumbercontrol
+  parameters:
+    ThousandsSeparator: ','
+    affinity: ''
+    alias: ''
+    comment: ''
+    gui_hint: 1,4,1,1
+    lbl: Carrier Frequency
+    maxFreqHz: 928E6
+    maxoutbuf: '0'
+    minFreqHz: 902E6
+    minoutbuf: '0'
+    outputmsgname: freq
+    readOnly: 'False'
+    relBackgroundColor: black
+    relFontColor: white
+    value: 915E6
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [344, 8.0]
+    rotation: 0
+    state: enabled
+- name: enable_gui
+  id: variable_qtgui_toggle_switch
+  parameters:
+    cellalignment: '1'
+    comment: ''
+    gui_hint: 0,4,1,1
+    initPressed: 'True'
+    label: Enable  GUI
+    outputmsgname: value
+    position: '4'
+    pressed: '1'
+    released: '0'
+    switchOffBackground: gray
+    switchOnBackground: green
+    type: int
+    value: '1'
+    verticalalignment: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [864, 160.0]
+    rotation: 0
+    state: enabled
+- name: enable_tx
+  id: variable_qtgui_toggle_switch
+  parameters:
+    cellalignment: '1'
+    comment: ''
+    gui_hint: 0,3,1,1
+    initPressed: 'True'
+    label: RF ON
+    outputmsgname: value
+    position: '4'
+    pressed: '1'
+    released: '0'
+    switchOffBackground: gray
+    switchOnBackground: green
+    type: bool
+    value: '1'
+    verticalalignment: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [648, 24.0]
+    rotation: 0
+    state: enabled
+- name: gain_db
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: 2,3,1,1
+    label: DSP Gain (dB)
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '-60'
+    step: '3'
+    stop: '60'
+    value: '0'
+    widget: counter_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1472, 32.0]
+    rotation: 0
+    state: enabled
+- name: pluto_uri
+  id: variable
+  parameters:
+    comment: ''
+    value: iio.get_pluto_uri()
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1200, 120]
+    rotation: 0
+    state: enabled
+- name: radio_attenuation_db
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: 1,3,1,1
+    label: Radio Gain (dB)
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '0'
+    step: '3'
+    stop: '40'
+    value: '10'
+    widget: counter_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [896, 16.0]
+    rotation: 0
+    state: enabled
+- name: radio_source
+  id: variable_qtgui_chooser
+  parameters:
+    comment: ''
+    gui_hint: 2,4,1,1
+    label: Radio Source
+    label0: Zero
+    label1: Wavegenerator
+    label2: f"ZMQ Port:{zmq_base_port+zmq_pull_offset}"
+    label3: ''
+    label4: ''
+    labels: '[]'
+    num_opts: '3'
+    option0: '0'
+    option1: '1'
+    option2: '2'
+    option3: '3'
+    option4: '4'
+    options: '[0, 1, 2]'
+    orient: Qt.QVBoxLayout
+    type: int
+    value: '2'
+    widget: combo_box
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [648, 176.0]
+    rotation: 0
+    state: enabled
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: int(1E6)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [200, 12]
+    rotation: 0
+    state: enabled
+- name: waveform
+  id: variable_qtgui_chooser
+  parameters:
+    comment: ''
+    gui_hint: 3,3,1,1
+    label: Waveform Type
+    label0: Cosine
+    label1: Square
+    label2: Triangle
+    label3: Saw Tooth
+    label4: Constant
+    labels: '["Constant","Cosine","Square","Triangle","Saw Tooth","Noise"]'
+    num_opts: '0'
+    option0: '1'
+    option1: '2'
+    option2: '3'
+    option3: '4'
+    option4: '0'
+    options: '[0,1,2,3,4,5]'
+    orient: Qt.QVBoxLayout
+    type: int
+    value: '1'
+    widget: combo_box
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [312, 212.0]
+    rotation: 0
+    state: enabled
+- name: waveform_frequency
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: 3,4,1,1
+    label: Waveform Frequency
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: -samp_rate*0.5
+    step: '1'
+    stop: samp_rate*0.5
+    value: '1000'
+    widget: eng_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [248, 528.0]
+    rotation: 0
+    state: enabled
+- name: waveform_offset
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: 4,3,1,1
+    label: Waveform Offset
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '-1.0'
+    step: 1E-6
+    stop: '1.0'
+    value: '0.0'
+    widget: eng_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [248, 664.0]
+    rotation: 0
+    state: enabled
+- name: waveform_phase
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: 4,4,1,1
+    label: Waveform Phase (normalized)
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '-1.0'
+    step: 1E-6
+    stop: '1.0'
+    value: '0.0'
+    widget: eng_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [232, 808.0]
+    rotation: 0
+    state: enabled
+- name: zmq_base_port
+  id: variable
+  parameters:
+    comment: ''
+    value: '20000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1160, 32.0]
+    rotation: 0
+    state: enabled
+- name: zmq_pull_offset
+  id: variable
+  parameters:
+    comment: ''
+    value: '2'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1320, 32.0]
+    rotation: 0
+    state: enabled
+- name: analog_noise_source_x_0
+  id: analog_noise_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    amp: '1'
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    noise_type: analog.GR_GAUSSIAN
+    seed: '0'
+    type: complex
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [880, 792.0]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0
+  id: analog_sig_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    amp: '1.0'
+    comment: ''
+    freq: waveform_frequency
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    offset: waveform_offset
+    phase: waveform_phase*2.0*357/113
+    samp_rate: samp_rate
+    showports: 'False'
+    type: complex
+    waveform: analog.GR_COS_WAVE
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [728, 440.0]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0_0
+  id: analog_sig_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    amp: '1.0'
+    comment: ''
+    freq: waveform_frequency
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    offset: waveform_offset
+    phase: waveform_phase*2.0*357/113
+    samp_rate: samp_rate
+    showports: 'False'
+    type: complex
+    waveform: analog.GR_SQR_WAVE
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [632, 576.0]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0_0_0
+  id: analog_sig_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    amp: '1.0'
+    comment: ''
+    freq: waveform_frequency
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    offset: waveform_offset
+    phase: waveform_phase*2.0*357/113
+    samp_rate: samp_rate
+    showports: 'False'
+    type: complex
+    waveform: analog.GR_TRI_WAVE
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [808, 592.0]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0_0_0_0
+  id: analog_sig_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    amp: '1.0'
+    comment: ''
+    freq: waveform_frequency
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    offset: waveform_offset
+    phase: waveform_phase*2.0*357/113
+    samp_rate: samp_rate
+    showports: 'False'
+    type: complex
+    waveform: analog.GR_SAW_WAVE
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [688, 728.0]
+    rotation: 0
+    state: enabled
+- name: analog_sig_source_x_0_0_0_0_0
+  id: analog_sig_source_x
+  parameters:
+    affinity: ''
+    alias: ''
+    amp: '1.0'
+    comment: ''
+    freq: waveform_frequency
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    offset: waveform_offset
+    phase: waveform_phase*2.0*357/113
+    samp_rate: samp_rate
+    showports: 'False'
+    type: complex
+    waveform: analog.GR_CONST_WAVE
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [912, 448.0]
+    rotation: 0
+    state: enabled
+- name: blocks_multiply_const_xx_0
+  id: blocks_multiply_const_xx
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    const: 10**(gain_db/20)
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1688, 520.0]
+    rotation: 0
+    state: enabled
+- name: blocks_null_sink_0
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    bus_structure_sink: '[[0,],]'
+    comment: ''
+    num_inputs: '1'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2208, 272.0]
+    rotation: 0
+    state: enabled
+- name: blocks_null_sink_0_0
+  id: blocks_null_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    bus_structure_sink: '[[0,],]'
+    comment: ''
+    num_inputs: '1'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2184, 544.0]
+    rotation: 0
+    state: enabled
+- name: blocks_null_source_0
+  id: blocks_null_source
+  parameters:
+    affinity: ''
+    alias: ''
+    bus_structure_source: '[[0,],]'
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_outputs: '1'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1216, 424.0]
+    rotation: 0
+    state: enabled
+- name: blocks_selector_0
+  id: blocks_selector
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    enabled: 'True'
+    input_index: '0'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '1'
+    num_outputs: '2'
+    output_index: enable_gui
+    showports: 'True'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1968, 368.0]
+    rotation: 0
+    state: enabled
+- name: blocks_selector_0_0
+  id: blocks_selector
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    enabled: 'True'
+    input_index: '0'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '1'
+    num_outputs: '2'
+    output_index: enable_tx
+    showports: 'True'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1968, 520.0]
+    rotation: 0
+    state: enabled
+- name: blocks_selector_1
+  id: blocks_selector
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    enabled: 'True'
+    input_index: radio_source
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '3'
+    num_outputs: '1'
+    output_index: '0'
+    showports: 'True'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1456, 488.0]
+    rotation: 0
+    state: enabled
+- name: blocks_selector_1_0
+  id: blocks_selector
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    enabled: 'True'
+    input_index: waveform
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    num_inputs: '6'
+    num_outputs: '1'
+    output_index: '0'
+    showports: 'True'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1104, 528.0]
+    rotation: 0
+    state: enabled
+- name: iio_pluto_sink_0
+  id: iio_pluto_sink
+  parameters:
+    affinity: ''
+    alias: ''
+    attenuation1: radio_attenuation_db
+    bandwidth: '20000000'
+    buffer_size: int(64)
+    comment: ''
+    cyclic: 'False'
+    filter: ''
+    filter_source: '''Auto'''
+    fpass: '0'
+    frequency: int(center_frequency)
+    fstop: '0'
+    len_tag_key: ''
+    samplerate: int(samp_rate)
+    type: fc32
+    uri: pluto_uri
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2184, 612.0]
+    rotation: 0
+    state: enabled
+- name: qtgui_sink_x_0
+  id: qtgui_sink_x
+  parameters:
+    affinity: ''
+    alias: ''
+    bw: samp_rate
+    comment: ''
+    fc: center_frequency
+    fftsize: '1024'
+    gui_hint: 0,0,5,3
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    name: '"ADALM Pluto Receiver"'
+    plotconst: 'True'
+    plotfreq: 'False'
+    plottime: 'True'
+    plotwaterfall: 'True'
+    rate: '10'
+    showports: 'False'
+    showrf: 'True'
+    type: complex
+    wintype: window.WIN_BLACKMAN_hARRIS
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [2240, 320.0]
+    rotation: 0
+    state: enabled
+- name: zeromq_pull_source_0
+  id: zeromq_pull_source
+  parameters:
+    address: f"tcp://127.0.0.1:{zmq_base_port+zmq_pull_offset}"
+    affinity: ''
+    alias: ''
+    bind: 'True'
+    comment: ''
+    hwm: '-1'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    pass_tags: 'False'
+    timeout: '100'
+    type: complex
+    vlen: '1'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1304, 800.0]
+    rotation: 0
+    state: enabled
+
+connections:
+- [analog_noise_source_x_0, '0', blocks_selector_1_0, '5']
+- [analog_sig_source_x_0, '0', blocks_selector_1_0, '1']
+- [analog_sig_source_x_0_0, '0', blocks_selector_1_0, '2']
+- [analog_sig_source_x_0_0_0, '0', blocks_selector_1_0, '3']
+- [analog_sig_source_x_0_0_0_0, '0', blocks_selector_1_0, '4']
+- [analog_sig_source_x_0_0_0_0_0, '0', blocks_selector_1_0, '0']
+- [blocks_multiply_const_xx_0, '0', blocks_selector_0, '0']
+- [blocks_multiply_const_xx_0, '0', blocks_selector_0_0, '0']
+- [blocks_null_source_0, '0', blocks_selector_1, '0']
+- [blocks_selector_0, '0', blocks_null_sink_0, '0']
+- [blocks_selector_0, '1', qtgui_sink_x_0, '0']
+- [blocks_selector_0_0, '0', blocks_null_sink_0_0, '0']
+- [blocks_selector_0_0, '1', iio_pluto_sink_0, '0']
+- [blocks_selector_1, '0', blocks_multiply_const_xx_0, '0']
+- [blocks_selector_1_0, '0', blocks_selector_1, '1']
+- [zeromq_pull_source_0, '0', blocks_selector_1, '2']
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.12.0
