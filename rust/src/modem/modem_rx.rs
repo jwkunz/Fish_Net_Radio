@@ -52,7 +52,13 @@ impl ModemRX {
             debug_tx.clone(),
             receiver_config.clone(),
         );
-        let search_handle = spawn_search_stage(search_rx, search_tx, running.clone(), debug_tx.clone());
+        let search_handle = spawn_search_stage(
+            search_rx,
+            search_tx,
+            running.clone(),
+            debug_tx.clone(),
+            receiver_config.clone(),
+        );
         let demod_handle = spawn_demod_stage(demod_rx, message_tx, running.clone(), debug_tx);
 
         let _ = source_handle.join();
@@ -210,12 +216,13 @@ fn spawn_search_stage(
     out_tx: mpsc::Sender<Arc<SymbolStream>>,
     running: Arc<AtomicBool>,
     debug_tx: Option<RxDebugTx>,
+    receiver_config: ReceiverConfig,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let mut image_builder = ImageBuilder::new();
-        let mut acquisition = Acquisition::new();
-        let mut cfar = CfarDetector::new();
-        let mut tracker = Tracker::new();
+        let mut image_builder = ImageBuilder::new(receiver_config.clone(), debug_tx.clone());
+        let mut acquisition = Acquisition::new(receiver_config.clone(), debug_tx.clone());
+        let mut cfar = CfarDetector::new(receiver_config.clone(), debug_tx.clone());
+        let mut tracker = Tracker::new(receiver_config, debug_tx.clone());
         let mut seq = 0u64;
         emit_debug(
             &debug_tx,
