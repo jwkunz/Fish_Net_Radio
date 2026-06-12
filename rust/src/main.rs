@@ -3,7 +3,7 @@ use std::fs;
 use FishNetModem::{modem::{modem_configuration::ModemConfiguration, modem_tx::ModemTX}, user_interface::*};
 
 fn main() {
-    let args : Vec<String> = std::env::args().collect();
+    let mut args : Vec<String> = std::env::args().collect();
 
     let config_file: String = if let Some(position) = args.iter().position(|x| x==&String::from("--config")){
         args[position+1].clone()
@@ -14,6 +14,9 @@ fn main() {
     };
 
     let modem_configuration : ModemConfiguration = serde_yaml::from_str(&fs::read_to_string(config_file).expect("The configuration file was not found")).expect("The modem configuration did not parse correctly");
+
+    // DEBUG
+    args.push("--tx".into());
 
     if args.contains(&String::from("--tx")) {
         if let Ok(mut modem) = ModemTX::new(modem_configuration){

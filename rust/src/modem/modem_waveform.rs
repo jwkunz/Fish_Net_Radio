@@ -32,7 +32,8 @@ impl WaveformGenerator {
 
         self.fft.process(&mut freq_buffer);
 
-        let scale = 1.0 / self.ifft_size as f32;
+        let max_value = freq_buffer.iter().map(|x| x.norm() as f32).max_by(|a,b| a.total_cmp(b)).expect("This should execute");
+        let scale = 1.0/max_value;
         freq_buffer
             .into_iter()
             .map(|c| Complex::new(c.re * scale, c.im * scale))
