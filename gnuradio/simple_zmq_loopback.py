@@ -14,6 +14,7 @@ from gnuradio import qtgui
 from PyQt5 import QtCore
 from gnuradio import analog
 from gnuradio import blocks
+import math
 from gnuradio import gr
 from gnuradio.filter import firdes
 from gnuradio.fft import window
@@ -67,9 +68,10 @@ class simple_zmq_loopback(gr.top_block, Qt.QWidget):
         ##################################################
         self.zmq_output_port = zmq_output_port = 20001
         self.zmq_input_port = zmq_input_port = 20002
-        self.samp_rate = samp_rate = int(0.5E6)
+        self.samp_rate = samp_rate = int(1E6)
         self.channel_noise_voltage = channel_noise_voltage = 0.0
         self.channel_gain_db = channel_gain_db = 0.0
+        self.channel_doppler_hz = channel_doppler_hz = 0.0
 
         ##################################################
         # Blocks
@@ -88,6 +90,13 @@ class simple_zmq_loopback(gr.top_block, Qt.QWidget):
         for r in range(0, 1):
             self.top_grid_layout.setRowStretch(r, 1)
         for c in range(0, 1):
+            self.top_grid_layout.setColumnStretch(c, 1)
+        self._channel_doppler_hz_range = qtgui.Range(-samp_rate*0.5, samp_rate*0.5, 1, 0.0, 200)
+        self._channel_doppler_hz_win = qtgui.RangeWidget(self._channel_doppler_hz_range, self.set_channel_doppler_hz, "Channel Doppler (Hz)", "counter_slider", float, QtCore.Qt.Horizontal)
+        self.top_grid_layout.addWidget(self._channel_doppler_hz_win, 0, 2, 1, 1)
+        for r in range(0, 1):
+            self.top_grid_layout.setRowStretch(r, 1)
+        for c in range(2, 3):
             self.top_grid_layout.setColumnStretch(c, 1)
         self.zeromq_push_sink_0 = zeromq.push_sink(gr.sizeof_gr_complex, 1, f"tcp://127.0.0.1:{zmq_output_port}", 100, False, (-1), True)
         self.zeromq_pull_source_0 = zeromq.pull_source(gr.sizeof_gr_complex, 1, f"tcp://127.0.0.1:{zmq_input_port}", 100, False, (-1), True)
@@ -114,6 +123,7 @@ class simple_zmq_loopback(gr.top_block, Qt.QWidget):
         for c in range(0, 2):
             self.top_grid_layout.setColumnStretch(c, 1)
         self.blocks_multiply_const_xx_0 = blocks.multiply_const_cc(10**(channel_gain_db/20.0), 1)
+        self.blocks_freqshift_cc_0 = blocks.rotator_cc(2.0*math.pi*channel_doppler_hz/samp_rate)
         self.blocks_add_xx_0 = blocks.add_vcc(1)
         self.analog_noise_source_x_0 = analog.noise_source_c(analog.GR_GAUSSIAN, channel_noise_voltage, 0)
 
@@ -124,7 +134,8 @@ class simple_zmq_loopback(gr.top_block, Qt.QWidget):
         self.connect((self.analog_noise_source_x_0, 0), (self.blocks_add_xx_0, 1))
         self.connect((self.blocks_add_xx_0, 0), (self.qtgui_sink_x_0, 0))
         self.connect((self.blocks_add_xx_0, 0), (self.zeromq_push_sink_0, 0))
-        self.connect((self.blocks_multiply_const_xx_0, 0), (self.blocks_add_xx_0, 0))
+        self.connect((self.blocks_freqshift_cc_0, 0), (self.blocks_add_xx_0, 0))
+        self.connect((self.blocks_multiply_const_xx_0, 0), (self.blocks_freqshift_cc_0, 0))
         self.connect((self.zeromq_pull_source_0, 0), (self.blocks_multiply_const_xx_0, 0))
 
 
@@ -153,6 +164,7 @@ class simple_zmq_loopback(gr.top_block, Qt.QWidget):
 
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
+        self.blocks_freqshift_cc_0.set_phase_inc(2.0*math.pi*self.channel_doppler_hz/self.samp_rate)
         self.qtgui_sink_x_0.set_frequency_range(0.0, self.samp_rate)
 
     def get_channel_noise_voltage(self):
@@ -168,6 +180,13 @@ class simple_zmq_loopback(gr.top_block, Qt.QWidget):
     def set_channel_gain_db(self, channel_gain_db):
         self.channel_gain_db = channel_gain_db
         self.blocks_multiply_const_xx_0.set_k(10**(self.channel_gain_db/20.0))
+
+    def get_channel_doppler_hz(self):
+        return self.channel_doppler_hz
+
+    def set_channel_doppler_hz(self, channel_doppler_hz):
+        self.channel_doppler_hz = channel_doppler_hz
+        self.blocks_freqshift_cc_0.set_phase_inc(2.0*math.pi*self.channel_doppler_hz/self.samp_rate)
 
 
 
