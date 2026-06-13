@@ -8,6 +8,9 @@ DEFAULT_CONFIG="$RUST_DIR/src/default_config.yaml"
 CONFIG_PATH="$DEFAULT_CONFIG"
 PAYLOAD="loopback test payload"
 NOISE_VOLTAGE="0"
+SNR_DB=""
+NOISE_SPECIFIED="false"
+SNR_SPECIFIED="false"
 DOPPLER_HZ="0"
 TIMEOUT_SECONDS="20"
 ITERATIONS="1"
@@ -18,8 +21,13 @@ LOOPBACK_VERBOSE="false"
 
 usage() {
     cat <<'EOF'
-Usage: test_loopback.sh [--config PATH] [--payload TEXT] [--noise VOLTS] [--doppler HZ] [--timeout SECONDS] [--iterations N] [--gap SECONDS] [--initial-gap SECONDS] [--tail-gap SECONDS] [--loopback-verbose]
+Usage: test_loopback.sh [--config PATH] [--payload TEXT] [--noise VOLTS | --snr-db DB] [--doppler HZ] [--timeout SECONDS] [--iterations N] [--gap SECONDS] [--initial-gap SECONDS] [--tail-gap SECONDS] [--loopback-verbose]
 EOF
+}
+
+snr_db_to_noise_voltage() {
+    local snr_db="${1:?missing snr db}"
+    awk -v snr_db="$snr_db" 'BEGIN { printf "%.10f", exp(log(10) * (-snr_db / 20.0)) }'
 }
 
 while (($#)); do
@@ -34,6 +42,12 @@ while (($#)); do
             ;;
         --noise)
             NOISE_VOLTAGE="${2:?missing value for --noise}"
+            NOISE_SPECIFIED="true"
+            shift 2
+            ;;
+        --snr-db)
+            SNR_DB="${2:?missing value for --snr-db}"
+            SNR_SPECIFIED="true"
             shift 2
             ;;
         --doppler)
@@ -84,6 +98,16 @@ fi
 if ! [[ "$ITERATIONS" =~ ^[0-9]+$ ]] || [[ "$ITERATIONS" -lt 1 ]]; then
     echo "--iterations must be a positive integer" >&2
     exit 2
+fi
+
+if [[ "$SNR_SPECIFIED" == "true" && "$NOISE_SPECIFIED" == "true" ]]; then
+    echo "Use either --noise or --snr-db, not both" >&2
+    exit 2
+fi
+
+if [[ "$SNR_SPECIFIED" == "true" ]]; then
+    NOISE_VOLTAGE="$(snr_db_to_noise_voltage "$SNR_DB")"
+    echo "SNR target ${SNR_DB} dB -> noise voltage ${NOISE_VOLTAGE}"
 fi
 
 tmp_dir="$(mktemp -d)"
