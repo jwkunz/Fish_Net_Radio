@@ -44,12 +44,20 @@ impl ModemRX {
         let payload_config = config.payload.clone();
         let output_config = config.output.clone();
         let preamble_config = config.transmitter.preamble.clone();
+        let rx_address = config.gnuradio_instance_address_rx.clone();
+        let rx_port = config.gnuradio_instance_port_rx.clone();
 
         let (source_tx, fft_rx) = mpsc::channel::<Arc<RawComplexFrame>>();
         let (fft_tx, search_rx) = mpsc::channel::<Arc<SpectrumFrame>>();
         let (search_tx, demod_rx) = mpsc::channel::<Arc<SymbolStream>>();
 
-        let source_handle = spawn_source_stage(source_tx, running.clone(), debug_tx.clone());
+        let source_handle = spawn_source_stage(
+            source_tx,
+            running.clone(),
+            debug_tx.clone(),
+            rx_address,
+            rx_port,
+        );
         let fft_handle = spawn_fft_stage(
             fft_rx,
             fft_tx,
@@ -87,20 +95,36 @@ fn spawn_source_stage(
     source_tx: mpsc::Sender<Arc<RawComplexFrame>>,
     running: Arc<AtomicBool>,
     debug_tx: Option<RxDebugTx>,
+    address: String,
+    port: String,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let mut source = RxSource::new();
+        let mut source = match RxSource::new(&address, &port) {
+            Ok(source) => source,
+            Err(err) => {
+                emit_debug(
+                    &debug_tx,
+                    RxDebugEvent::Error {
+                        stage: RxStageId::Source,
+                        seq: 0,
+                        detail: format!("failed to connect source: {}", err),
+                    },
+                );
+                return;
+            }
+        };
         let mut seq = 0u64;
         emit_debug(
             &debug_tx,
             RxDebugEvent::StageStart {
                 stage: RxStageId::Source,
                 seq,
-                detail: "source stage started".to_string(),
+                detail: format!("source stage started on {}:{}", address, port),
             },
         );
         while running.load(Ordering::SeqCst) {
-            if let Ok(Some(frames)) = source.process(&[()]) {
+            match source.process(&[()]) {
+                Ok(Some(frames)) => {
                 for frame in frames {
                     seq += 1;
                     emit_debug(
@@ -132,8 +156,22 @@ fn spawn_source_stage(
                         return;
                     }
                 }
+                }
+                Ok(None) => {
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Err(err) => {
+                    emit_debug(
+                        &debug_tx,
+                        RxDebugEvent::Error {
+                            stage: RxStageId::Source,
+                            seq,
+                            detail: format!("source receive error: {:?}", err),
+                        },
+                    );
+                    thread::sleep(Duration::from_millis(25));
+                }
             }
-            thread::sleep(Duration::from_millis(500));
         }
         emit_debug(
             &debug_tx,

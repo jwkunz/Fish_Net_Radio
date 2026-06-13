@@ -1,15 +1,17 @@
-use lib_jsl::dsp::{discrete::stream_operator::*, prelude::ErrorsJSL};
-use num_complex::Complex;
-use std::sync::Arc;
 use crate::modem::modem_rx_types::RawComplexFrame;
+use crate::zmq_interface::zmq_pull_source::ZmqPullStreamSource;
+use lib_jsl::dsp::{discrete::stream_operator::*, prelude::ErrorsJSL};
+use std::sync::Arc;
 
 pub struct RxSource {
-    counter: usize,
+    inner: ZmqPullStreamSource,
 }
 
 impl RxSource {
-    pub fn new() -> Self {
-        RxSource { counter: 0 }
+    pub fn new(address: &str, port: &str) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(RxSource {
+            inner: ZmqPullStreamSource::new(address, port)?,
+        })
     }
 }
 
@@ -29,13 +31,6 @@ impl StreamOperator<(), Arc<RawComplexFrame>> for RxSource {
     }
 
     fn process(&mut self, _: &[()]) -> Result<Option<Vec<Arc<RawComplexFrame>>>, ErrorsJSL> {
-        self.counter += 1;
-        let frame_len = 512;
-        let mut frame = Vec::with_capacity(frame_len);
-        for i in 0..frame_len {
-            let phase = (i as f32) * 2.0 * std::f32::consts::PI / frame_len as f32;
-            frame.push(Complex::new((phase).cos(), (phase).sin()));
-        }
-        Ok(Some(vec![Arc::new(frame)]))
+        self.inner.process(&[])
     }
 }

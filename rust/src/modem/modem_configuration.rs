@@ -9,6 +9,10 @@ pub struct ModemConfiguration {
     pub description: String,
     pub gnuradio_instance_address_tx: String,
     pub gnuradio_instance_port_tx: String,
+    #[serde(default = "default_gnuradio_instance_address_rx")]
+    pub gnuradio_instance_address_rx: String,
+    #[serde(default = "default_gnuradio_instance_port_rx")]
+    pub gnuradio_instance_port_rx: String,
     #[serde(alias = "sample_rate")]
     pub sample_rate_hz: f64,
     pub bits_per_symbol: usize,
@@ -175,4 +179,12 @@ impl ModemConfiguration {
         let config: ModemConfiguration = serde_yaml::from_str(&contents)?;
         Ok(config)
     }
+}
+
+fn default_gnuradio_instance_address_rx() -> String {
+    "127.0.0.1".to_string()
+}
+
+fn default_gnuradio_instance_port_rx() -> String {
+    "20001".to_string()
 }

@@ -11,6 +11,8 @@ raw_data_rate_bps: 15625                 # number
 spectral_efficiency: 0.058824            # number
 gnuradio_instance_address_tx: "127.0.0.1" # string
 gnuradio_instance_port_tx: "20002"       # string
+gnuradio_instance_address_rx: "127.0.0.1" # string
+gnuradio_instance_port_rx: "20001"       # string
 
 transmitter:
   ifft_size: 512                           # integer

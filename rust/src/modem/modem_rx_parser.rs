@@ -263,6 +263,8 @@ mod tests {
             description: "test".to_string(),
             gnuradio_instance_address_tx: "127.0.0.1".to_string(),
             gnuradio_instance_port_tx: "20002".to_string(),
+            gnuradio_instance_address_rx: "127.0.0.1".to_string(),
+            gnuradio_instance_port_rx: "20001".to_string(),
             sample_rate_hz: 1_000_000.0,
             bits_per_symbol: 8,
             symbol_duration_samples: 512,
