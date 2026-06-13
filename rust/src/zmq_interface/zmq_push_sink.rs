@@ -4,6 +4,7 @@ use zmq::{Context, SocketType::PUSH};
 
 pub struct ZmqPushStreamSink {
     endpoint: String,
+    _context: Context,
     push_socket: zmq::Socket,
 }
 
@@ -22,6 +23,7 @@ impl ZmqPushStreamSink {
 
         Ok(ZmqPushStreamSink {
             endpoint,
+            _context: context,
             push_socket,
         })
     }

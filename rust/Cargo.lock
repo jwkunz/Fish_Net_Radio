@@ -297,6 +297,7 @@ dependencies = [
  "crc",
  "ctrlc",
  "lib_jsl",
+ "libc",
  "num-complex",
  "rustfft",
  "serde",
