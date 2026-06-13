@@ -17,6 +17,7 @@ gnuradio_instance_port_rx: "20001"       # string
 transmitter:
   ifft_size: 512                           # integer
   symbol_samples: 512                     # integer
+  idle_fill_samples: 16384                # integer, zero samples sent once per idle interval
   output_format: "complex_f32"           # string
   valid_bins:
     low_block:

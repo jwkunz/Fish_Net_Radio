@@ -32,6 +32,8 @@ pub struct ModemConfiguration {
 pub struct TransmitterConfig {
     pub ifft_size: usize,
     pub symbol_samples: usize,
+    #[serde(default = "default_idle_fill_samples")]
+    pub idle_fill_samples: usize,
     pub output_format: String,
     pub valid_bins: ValidBinBlocks,
     pub bin_mapping: BinMapping,
@@ -187,4 +189,8 @@ fn default_gnuradio_instance_address_rx() -> String {
 
 fn default_gnuradio_instance_port_rx() -> String {
     "20001".to_string()
+}
+
+fn default_idle_fill_samples() -> usize {
+    16_384
 }

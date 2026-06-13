@@ -22,9 +22,7 @@ pub fn tx_loop(modem: &mut ModemTX) {
     )
     .expect("The ZMQ socket could not connect properly");
 
-    println!(
-        "Type UTF-8 text and press ENTER to transmit. Press Ctrl+C to exit."
-    );
+    println!("Type UTF-8 text and press ENTER to transmit. Press Ctrl+C to exit.");
 
     let running = Arc::new(AtomicBool::new(true));
     let ctrlc_running = running.clone();
@@ -65,7 +63,7 @@ pub fn tx_loop(modem: &mut ModemTX) {
         }
 
         if last_fill.elapsed() >= IDLE_FILL_INTERVAL {
-            let n_fill = modem.config.sample_rate_hz.ceil() as usize;
+            let n_fill = modem.config.transmitter.idle_fill_samples.max(1);
             let pad = vec![Complex::<f32>::from(0.0); n_fill];
             if let Err(err) = push_socket.process(&pad) {
                 eprintln!("Idle fill send failed: {:?}", err);

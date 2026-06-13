@@ -364,6 +364,7 @@ mod tests {
             transmitter: crate::modem::modem_configuration::TransmitterConfig {
                 ifft_size: 512,
                 symbol_samples: 512,
+                idle_fill_samples: 16_384,
                 output_format: "complex_f32".to_string(),
                 valid_bins: crate::modem::modem_configuration::ValidBinBlocks {
                     low_block: crate::modem::modem_configuration::BinBlock { start: 8, end: 135 },

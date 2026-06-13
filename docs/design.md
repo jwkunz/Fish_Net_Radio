@@ -56,6 +56,9 @@ required. The receiver accepts the broadcast MAC address as a valid destination.
   - `Payload bytes`
   - `CRC-32` computed over destination MAC, source MAC, and payload
 - The repeated length header is not included in the CRC-32.
+- When idle, the transmitter periodically emits a configurable zero-sample pad
+  (`idle_fill_samples`) so RX detection can observe off/on transitions without
+  flooding the pipeline with one full second of zeros.
 
 ### 4.2 Symbol mapping
 
