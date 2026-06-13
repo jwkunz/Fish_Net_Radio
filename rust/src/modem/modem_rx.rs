@@ -38,7 +38,12 @@ impl ModemRX {
         running: Arc<AtomicBool>,
         debug_tx: Option<RxDebugTx>,
     ) {
-        let receiver_config = self.config.receiver.clone();
+        let config = self.config;
+        let receiver_config = config.receiver.clone();
+        let framing_config = config.framing.clone();
+        let payload_config = config.payload.clone();
+        let output_config = config.output.clone();
+        let preamble_config = config.transmitter.preamble.clone();
 
         let (source_tx, fft_rx) = mpsc::channel::<Arc<RawComplexFrame>>();
         let (fft_tx, search_rx) = mpsc::channel::<Arc<SpectrumFrame>>();
@@ -59,7 +64,17 @@ impl ModemRX {
             debug_tx.clone(),
             receiver_config.clone(),
         );
-        let demod_handle = spawn_demod_stage(demod_rx, message_tx, running.clone(), debug_tx);
+        let demod_handle = spawn_demod_stage(
+            demod_rx,
+            message_tx,
+            running.clone(),
+            debug_tx,
+            receiver_config,
+            framing_config,
+            payload_config,
+            output_config,
+            preamble_config,
+        );
 
         let _ = source_handle.join();
         let _ = fft_handle.join();
@@ -388,10 +403,21 @@ fn spawn_demod_stage(
     message_tx: mpsc::Sender<RxMessage>,
     running: Arc<AtomicBool>,
     debug_tx: Option<RxDebugTx>,
+    receiver_config: ReceiverConfig,
+    framing_config: crate::modem::modem_configuration::FramingConfig,
+    payload_config: crate::modem::modem_configuration::PayloadConfig,
+    output_config: crate::modem::modem_configuration::OutputConfig,
+    preamble_config: crate::modem::modem_configuration::PreambleConfig,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let mut demodulator = Demodulator::new();
-        let mut parser = FrameParser::new();
+        let mut demodulator = Demodulator::new(receiver_config, debug_tx.clone());
+        let mut parser = FrameParser::new(
+            framing_config,
+            payload_config,
+            output_config,
+            preamble_config,
+            debug_tx.clone(),
+        );
         let mut seq = 0u64;
         emit_debug(
             &debug_tx,
@@ -423,17 +449,17 @@ fn spawn_demod_stage(
                         },
                     );
                     if let Ok(Some(decoded)) = demodulator.process(&[symbols]) {
-                        for symbol_stream in decoded {
+                        for frame_bytes in decoded {
                             emit_debug(
                                 &debug_tx,
                                 RxDebugEvent::Metric {
                                     stage: RxStageId::Demodulator,
                                     seq,
                                     name: "decoded_bytes",
-                                    value: symbol_stream.len() as f64,
+                                    value: frame_bytes.len() as f64,
                                 },
                             );
-                            if let Ok(Some(messages)) = parser.process(&[symbol_stream]) {
+                            if let Ok(Some(messages)) = parser.process(&[frame_bytes]) {
                                 for message in messages {
                                     emit_debug(
                                         &debug_tx,
