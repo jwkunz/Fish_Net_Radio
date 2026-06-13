@@ -55,7 +55,7 @@ framing:
 
 receiver:
   fft_size: 2048
-  fft_overlap_samples: 1024
+  fft_overlap_samples: 384
   symbol_rows: 4
   preamble_rows: 32
   search_buffer_rows: 36

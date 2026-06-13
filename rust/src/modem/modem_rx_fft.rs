@@ -2,13 +2,15 @@ use crate::modem::modem_configuration::ReceiverConfig;
 use crate::modem::modem_rx_debug::{emit_debug, RxDebugEvent, RxDebugTx, RxStageId};
 use crate::modem::modem_rx_types::{RawComplexFrame, SpectrumFrame};
 use lib_jsl::dsp::{discrete::stream_operator::*, prelude::ErrorsJSL};
-use num_complex::Complex;
 use rustfft::{Fft, FftPlanner};
 use std::sync::Arc;
 
 pub struct FftFrontEnd {
     fft_size: usize,
+    window_size: usize,
+    hop_size: usize,
     fft: Arc<dyn Fft<f32> + Send + Sync>,
+    pending: RawComplexFrame,
     debug_tx: Option<RxDebugTx>,
     seq: u64,
 }
@@ -16,11 +18,22 @@ pub struct FftFrontEnd {
 impl FftFrontEnd {
     pub fn new(config: ReceiverConfig, debug_tx: Option<RxDebugTx>) -> Self {
         let fft_size = config.fft_size;
+        let window_size = fft_size
+            .checked_div(config.symbol_rows.max(1))
+            .unwrap_or(fft_size)
+            .max(1);
+        let overlap = config
+            .fft_overlap_samples
+            .min(window_size.saturating_sub(1));
+        let hop_size = window_size.saturating_sub(overlap).max(1);
         let mut planner = FftPlanner::<f32>::new();
         let fft = planner.plan_fft_forward(fft_size);
         FftFrontEnd {
             fft_size,
+            window_size,
+            hop_size,
             fft,
+            pending: Vec::new(),
             debug_tx,
             seq: 0,
         }
@@ -30,6 +43,7 @@ impl FftFrontEnd {
 impl StreamOperatorManagement for FftFrontEnd {
     fn reset(&mut self) -> Result<(), ErrorsJSL> {
         self.seq = 0;
+        self.pending.clear();
         Ok(())
     }
 
@@ -48,70 +62,108 @@ impl StreamOperator<Arc<RawComplexFrame>, Arc<SpectrumFrame>> for FftFrontEnd {
         data_in: &[Arc<RawComplexFrame>],
     ) -> Result<Option<Vec<Arc<SpectrumFrame>>>, ErrorsJSL> {
         let input = data_in.first().map(|a| (&**a).clone()).unwrap_or_default();
-        self.seq += 1;
-
+        let input_seq = self.seq + 1;
         emit_debug(
             &self.debug_tx,
             RxDebugEvent::Metric {
                 stage: RxStageId::FrontEnd,
-                seq: self.seq,
+                seq: input_seq,
                 name: "input_len",
                 value: input.len() as f64,
             },
         );
-
-        let mut buffer = vec![Complex::<f32>::default(); self.fft_size];
-        let copy_len = input.len().min(self.fft_size);
-        buffer[..copy_len].copy_from_slice(&input[..copy_len]);
-
-        self.fft.process(&mut buffer);
-
-        let (peak_bin, peak_mag) = buffer
-            .iter()
-            .enumerate()
-            .map(|(idx, sample)| (idx, sample.norm_sqr()))
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-            .unwrap_or((0, 0.0));
-
         emit_debug(
             &self.debug_tx,
             RxDebugEvent::Metric {
                 stage: RxStageId::FrontEnd,
-                seq: self.seq,
-                name: "output_len",
-                value: buffer.len() as f64,
+                seq: input_seq,
+                name: "window_size",
+                value: self.window_size as f64,
             },
         );
         emit_debug(
             &self.debug_tx,
             RxDebugEvent::Metric {
                 stage: RxStageId::FrontEnd,
-                seq: self.seq,
-                name: "peak_bin",
-                value: peak_bin as f64,
+                seq: input_seq,
+                name: "hop_size",
+                value: self.hop_size as f64,
             },
         );
+
+        self.pending.extend_from_slice(&input);
+        let mut outputs = Vec::new();
+
+        while self.pending.len() >= self.window_size {
+            self.seq += 1;
+            let mut buffer = vec![Default::default(); self.fft_size];
+            buffer[..self.window_size].copy_from_slice(&self.pending[..self.window_size]);
+            self.fft.process(&mut buffer);
+
+            let (peak_bin, peak_mag) = buffer
+                .iter()
+                .enumerate()
+                .map(|(idx, sample)| (idx, sample.norm_sqr()))
+                .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                .unwrap_or((0, 0.0));
+
+            emit_debug(
+                &self.debug_tx,
+                RxDebugEvent::Metric {
+                    stage: RxStageId::FrontEnd,
+                    seq: self.seq,
+                    name: "output_len",
+                    value: buffer.len() as f64,
+                },
+            );
+            emit_debug(
+                &self.debug_tx,
+                RxDebugEvent::Metric {
+                    stage: RxStageId::FrontEnd,
+                    seq: self.seq,
+                    name: "peak_bin",
+                    value: peak_bin as f64,
+                },
+            );
+            emit_debug(
+                &self.debug_tx,
+                RxDebugEvent::Metric {
+                    stage: RxStageId::FrontEnd,
+                    seq: self.seq,
+                    name: "peak_magnitude",
+                    value: peak_mag as f64,
+                },
+            );
+            emit_debug(
+                &self.debug_tx,
+                RxDebugEvent::Snapshot {
+                    stage: RxStageId::FrontEnd,
+                    seq: self.seq,
+                    label: "spectrum",
+                    rows: 1,
+                    cols: buffer.len(),
+                },
+            );
+
+            outputs.push(Arc::new(buffer));
+            self.pending.drain(..self.hop_size);
+        }
+
         emit_debug(
             &self.debug_tx,
             RxDebugEvent::Metric {
                 stage: RxStageId::FrontEnd,
                 seq: self.seq,
-                name: "peak_magnitude",
-                value: peak_mag as f64,
-            },
-        );
-        emit_debug(
-            &self.debug_tx,
-            RxDebugEvent::Snapshot {
-                stage: RxStageId::FrontEnd,
-                seq: self.seq,
-                label: "spectrum",
-                rows: 1,
-                cols: buffer.len(),
+                name: "buffered_samples",
+                value: self.pending.len() as f64,
             },
         );
 
-        Ok(Some(vec![Arc::new(buffer)]))
+        if outputs.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(outputs))
+        }
     }
 }
 
@@ -128,10 +180,14 @@ mod tests {
     use std::sync::mpsc;
 
     fn test_receiver_config(fft_size: usize) -> ReceiverConfig {
+        test_receiver_config_with_overlap(fft_size, 0)
+    }
+
+    fn test_receiver_config_with_overlap(fft_size: usize, fft_overlap_samples: usize) -> ReceiverConfig {
         ReceiverConfig {
             fft_size,
-            fft_overlap_samples: 0,
-            symbol_rows: 4,
+            fft_overlap_samples,
+            symbol_rows: 1,
             preamble_rows: 32,
             search_buffer_rows: 36,
             discard_bins: vec![BinBlock { start: 0, end: 0 }],
@@ -208,5 +264,15 @@ mod tests {
         assert!(saw_input_metric);
         assert!(saw_peak_metric);
         assert!(saw_snapshot);
+    }
+
+    #[test]
+    fn fft_front_end_emits_overlapped_windows() {
+        let mut fft = FftFrontEnd::new(test_receiver_config_with_overlap(8, 4), None);
+        let input = vec![Complex::new(1.0, 0.0); 16];
+
+        let outputs = fft.process(&[Arc::new(input)]).unwrap().unwrap();
+        assert_eq!(outputs.len(), 3);
+        assert!(outputs.iter().all(|spectrum| spectrum.len() == 8));
     }
 }

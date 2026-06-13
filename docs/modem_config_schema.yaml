@@ -59,7 +59,7 @@ framing:
 
 receiver:
   fft_size: 2048                           # integer
-  fft_overlap_samples: 1024               # integer, example overlap amount
+  fft_overlap_samples: 384                # integer, 128-sample hop over a 512-sample analysis window
   symbol_rows: 4                           # integer
   preamble_rows: 32                        # integer
   search_buffer_rows: 36                   # integer

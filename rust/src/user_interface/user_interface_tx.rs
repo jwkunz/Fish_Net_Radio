@@ -39,9 +39,12 @@ pub fn tx_loop(modem: &mut ModemTX) {
     let mut stdin_handle = stdin.lock();
     let mut pending = String::new();
     let mut last_fill = Instant::now();
+    let mut stdin_closed = false;
 
     while running.load(Ordering::SeqCst) {
-        pump_stdin(&mut stdin_handle, &mut pending);
+        if !stdin_closed && pump_stdin(&mut stdin_handle, &mut pending) {
+            stdin_closed = true;
+        }
 
         while let Some(line) = next_line(&mut pending) {
             if !line.is_empty() {
@@ -54,6 +57,11 @@ pub fn tx_loop(modem: &mut ModemTX) {
                 }
                 last_fill = Instant::now();
             }
+        }
+
+        if stdin_closed && pending.is_empty() {
+            running.store(false, Ordering::SeqCst);
+            break;
         }
 
         if last_fill.elapsed() >= IDLE_FILL_INTERVAL {
@@ -69,17 +77,17 @@ pub fn tx_loop(modem: &mut ModemTX) {
     }
 }
 
-fn pump_stdin(stdin: &mut dyn Read, pending: &mut String) {
+fn pump_stdin(stdin: &mut dyn Read, pending: &mut String) -> bool {
     let mut buffer = [0u8; 1024];
     loop {
         match stdin.read(&mut buffer) {
-            Ok(0) => break,
+            Ok(0) => return true,
             Ok(n) => pending.push_str(&String::from_utf8_lossy(&buffer[..n])),
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
+            Err(err) if err.kind() == io::ErrorKind::WouldBlock => return false,
             Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
             Err(err) => {
                 eprintln!("stdin read failed: {}", err);
-                break;
+                return true;
             }
         }
     }
