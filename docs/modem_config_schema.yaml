@@ -64,8 +64,8 @@ receiver:
   preamble_rows: 32                        # integer
   search_buffer_rows: 36                   # integer
   discard_bins:
-    - start: 144                          # integer
-      end: 367                            # integer
+    - start: 541                          # integer
+      end: 1503                           # integer
   nominal_rx_bins:
     low_block:
       start: 32                           # integer

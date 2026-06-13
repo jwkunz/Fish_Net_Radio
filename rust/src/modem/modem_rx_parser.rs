@@ -1,5 +1,9 @@
-use crate::modem::modem_configuration::{FramingConfig, OutputConfig, PayloadConfig, PreambleConfig};
-use crate::modem::modem_frame::{MacAddress};
+use crate::modem::modem_configuration::{
+    FramingConfig, OutputConfig, PayloadConfig, PreambleConfig,
+};
+use crate::modem::modem_frame::{
+    MacAddress, CRC_BYTES, MAC_ADDRESS_BYTES, REPEATED_LENGTH_HEADER_BYTES,
+};
 use crate::modem::modem_rx_debug::{emit_debug, RxDebugEvent, RxDebugTx, RxStageId};
 use crate::modem::modem_rx_types::{FrameBytes, RxMessage};
 use crc::{Crc, CRC_32_ISO_HDLC};
@@ -14,6 +18,16 @@ pub struct FrameParser {
     preamble: PreambleConfig,
     debug_tx: Option<RxDebugTx>,
     seq: u64,
+}
+
+struct ParsedFrame {
+    destination_mac: MacAddress,
+    source_mac: MacAddress,
+    payload: Vec<u8>,
+    received_crc: u32,
+    body_len: usize,
+    consumed_bytes: usize,
+    length_repaired: bool,
 }
 
 impl FrameParser {
@@ -42,9 +56,12 @@ impl FrameParser {
             .collect()
     }
 
-    fn parse_frame(&self, bytes: &[u8]) -> Result<(MacAddress, MacAddress, Vec<u8>, u32), String> {
+    fn parse_frame(&self, bytes: &[u8]) -> Result<ParsedFrame, String> {
         let preamble = self.preamble_bytes();
-        let frame_min_len = preamble.len() + 6 + 6 + 4;
+        let body_min_len = MAC_ADDRESS_BYTES * 2 + CRC_BYTES;
+        let header_start = preamble.len();
+        let body_start = header_start + REPEATED_LENGTH_HEADER_BYTES;
+        let frame_min_len = body_start + body_min_len;
         if bytes.len() < frame_min_len {
             return Err(format!("frame too short: {}", bytes.len()));
         }
@@ -52,19 +69,34 @@ impl FrameParser {
             return Err("preamble mismatch".to_string());
         }
 
-        let dest_start = preamble.len();
-        let src_start = dest_start + 6;
-        let payload_start = src_start + 6;
-        let crc_start = bytes.len().saturating_sub(4);
+        let (body_len, length_repaired) = decode_repeated_length(&bytes[header_start..body_start])?;
+        if body_len < body_min_len {
+            return Err(format!("frame body too short: {}", body_len));
+        }
 
-        let destination_mac = MacAddress(bytes[dest_start..src_start].try_into().unwrap());
-        let source_mac = MacAddress(bytes[src_start..payload_start].try_into().unwrap());
-        let payload = bytes[payload_start..crc_start].to_vec();
-        let received_crc = u32::from_le_bytes(bytes[crc_start..].try_into().unwrap());
+        let consumed_bytes = body_start + body_len;
+        if bytes.len() < consumed_bytes {
+            return Err(format!(
+                "incomplete frame body: expected={} available={}",
+                body_len,
+                bytes.len().saturating_sub(body_start)
+            ));
+        }
+
+        let body = &bytes[body_start..consumed_bytes];
+        let dest_start = 0;
+        let src_start = dest_start + MAC_ADDRESS_BYTES;
+        let payload_start = src_start + MAC_ADDRESS_BYTES;
+        let crc_start = body.len().saturating_sub(CRC_BYTES);
+
+        let destination_mac = MacAddress(body[dest_start..src_start].try_into().unwrap());
+        let source_mac = MacAddress(body[src_start..payload_start].try_into().unwrap());
+        let payload = body[payload_start..crc_start].to_vec();
+        let received_crc = u32::from_le_bytes(body[crc_start..].try_into().unwrap());
 
         let alg = Crc::<u32>::new(&CRC_32_ISO_HDLC);
         let mut digest = alg.digest();
-        digest.update(&bytes[dest_start..crc_start]);
+        digest.update(&body[dest_start..crc_start]);
         let computed_crc = digest.finalize();
 
         if received_crc != computed_crc {
@@ -74,16 +106,19 @@ impl FrameParser {
             ));
         }
 
-        Ok((destination_mac, source_mac, payload, received_crc))
+        Ok(ParsedFrame {
+            destination_mac,
+            source_mac,
+            payload,
+            received_crc,
+            body_len,
+            consumed_bytes,
+            length_repaired,
+        })
     }
 
     fn destination_is_valid(&self, destination: &MacAddress) -> bool {
-        let configured_destination = self
-            .framing
-            .mac
-            .destination_mac
-            .parse::<MacAddress>()
-            .ok();
+        let configured_destination = self.framing.mac.destination_mac.parse::<MacAddress>().ok();
         let broadcast = MacAddress([0xFF; 6]);
 
         if self.output.validate_destination_mac {
@@ -115,6 +150,29 @@ impl PartialEq for MacAddress {
 }
 
 impl Eq for MacAddress {}
+
+fn decode_repeated_length(bytes: &[u8]) -> Result<(usize, bool), String> {
+    if bytes.len() != REPEATED_LENGTH_HEADER_BYTES {
+        return Err(format!("invalid repeated length header: {}", bytes.len()));
+    }
+
+    let first = u16::from_le_bytes(bytes[0..2].try_into().unwrap());
+    let second = u16::from_le_bytes(bytes[2..4].try_into().unwrap());
+    let third = u16::from_le_bytes(bytes[4..6].try_into().unwrap());
+
+    let voted = if first == second || first == third {
+        first
+    } else if second == third {
+        second
+    } else {
+        return Err(format!(
+            "length header disagreement: {}, {}, {}",
+            first, second, third
+        ));
+    };
+
+    Ok((voted as usize, first != second || first != third))
+}
 
 impl StreamOperatorManagement for FrameParser {
     fn reset(&mut self) -> Result<(), ErrorsJSL> {
@@ -149,8 +207,7 @@ impl StreamOperator<Arc<FrameBytes>, RxMessage> for FrameParser {
             },
         );
 
-        let (destination_mac, source_mac, payload_bytes, received_crc) = match self.parse_frame(&bytes)
-        {
+        let parsed = match self.parse_frame(&bytes) {
             Ok(parsed) => parsed,
             Err(detail) => {
                 emit_debug(
@@ -165,21 +222,54 @@ impl StreamOperator<Arc<FrameBytes>, RxMessage> for FrameParser {
             }
         };
 
-        if !self.destination_is_valid(&destination_mac) {
+        emit_debug(
+            &self.debug_tx,
+            RxDebugEvent::Metric {
+                stage: RxStageId::Parser,
+                seq: self.seq,
+                name: "body_len",
+                value: parsed.body_len as f64,
+            },
+        );
+        emit_debug(
+            &self.debug_tx,
+            RxDebugEvent::Metric {
+                stage: RxStageId::Parser,
+                seq: self.seq,
+                name: "length_header_repaired",
+                value: if parsed.length_repaired { 1.0 } else { 0.0 },
+            },
+        );
+
+        if parsed.consumed_bytes < bytes.len() {
             emit_debug(
                 &self.debug_tx,
                 RxDebugEvent::Warning {
                     stage: RxStageId::Parser,
                     seq: self.seq,
-                    detail: format!("destination {} rejected", destination_mac),
+                    detail: format!(
+                        "trimmed trailing demod bytes: {}",
+                        bytes.len() - parsed.consumed_bytes
+                    ),
+                },
+            );
+        }
+
+        if !self.destination_is_valid(&parsed.destination_mac) {
+            emit_debug(
+                &self.debug_tx,
+                RxDebugEvent::Warning {
+                    stage: RxStageId::Parser,
+                    seq: self.seq,
+                    detail: format!("destination {} rejected", parsed.destination_mac),
                 },
             );
             return Ok(None);
         }
 
-        let payload = self.decode_payload(&payload_bytes);
+        let payload = self.decode_payload(&parsed.payload);
         let source_mac_text = if self.output.include_source_mac {
-            source_mac.to_string()
+            parsed.source_mac.to_string()
         } else {
             String::new()
         };
@@ -200,11 +290,12 @@ impl StreamOperator<Arc<FrameBytes>, RxMessage> for FrameParser {
                 stage: RxStageId::Parser,
                 seq: self.seq,
                 summary: format!(
-                    "destination={} source={} payload_len={} crc={:#010X}",
-                    destination_mac,
-                    source_mac,
-                    payload_bytes.len(),
-                    received_crc
+                    "destination={} source={} payload_len={} crc={:#010X} consumed_bytes={}",
+                    parsed.destination_mac,
+                    parsed.source_mac,
+                    parsed.payload.len(),
+                    parsed.received_crc,
+                    parsed.consumed_bytes
                 ),
             },
         );
@@ -217,9 +308,9 @@ impl StreamOperator<Arc<FrameBytes>, RxMessage> for FrameParser {
 mod tests {
     use super::*;
     use crate::modem::modem_configuration::{
-        BinBlock, CfarConfig, DebugLoggingLevel, DopplerConfig, FramingConfig, MacConfig,
-        ModemConfiguration, NominalRxBins, OutputConfig, PayloadConfig, PreambleConfig,
-        ReceiverConfig, RxBinBlock, TrackingConfig, CrcConfig,
+        BinBlock, CfarConfig, CrcConfig, DebugLoggingLevel, DopplerConfig, FramingConfig,
+        MacConfig, ModemConfiguration, NominalRxBins, OutputConfig, PayloadConfig, PreambleConfig,
+        ReceiverConfig, RxBinBlock, TrackingConfig,
     };
     use crate::modem::modem_frame::FrameBuilder;
     use crate::modem::modem_rx_debug::RxDebugEvent;
@@ -276,12 +367,21 @@ mod tests {
                 output_format: "complex_f32".to_string(),
                 valid_bins: crate::modem::modem_configuration::ValidBinBlocks {
                     low_block: crate::modem::modem_configuration::BinBlock { start: 8, end: 135 },
-                    high_block: crate::modem::modem_configuration::BinBlock { start: 376, end: 503 },
+                    high_block: crate::modem::modem_configuration::BinBlock {
+                        start: 376,
+                        end: 503,
+                    },
                 },
                 bin_mapping: crate::modem::modem_configuration::BinMapping {
                     scheme: "contiguous".to_string(),
-                    low_symbol_range: crate::modem::modem_configuration::SymbolRange { start: 0, end: 127 },
-                    high_symbol_range: crate::modem::modem_configuration::SymbolRange { start: 128, end: 255 },
+                    low_symbol_range: crate::modem::modem_configuration::SymbolRange {
+                        start: 0,
+                        end: 127,
+                    },
+                    high_symbol_range: crate::modem::modem_configuration::SymbolRange {
+                        start: 128,
+                        end: 255,
+                    },
                     description: "test".to_string(),
                 },
                 preamble: default_preamble(),
@@ -379,5 +479,78 @@ mod tests {
         }
 
         assert!(saw_message);
+    }
+
+    #[test]
+    fn parser_repairs_single_bad_length_copy() {
+        let config = test_config();
+        let builder = FrameBuilder::new(
+            "FF:FF:FF:FF:FF:FF".parse().unwrap(),
+            "00:11:22:33:44:55".parse().unwrap(),
+            config.framing.crc.clone(),
+            config.transmitter.preamble.clone(),
+        );
+        let mut frame = builder.build_frame(b"Hello");
+        let first_length_byte = config.transmitter.preamble.bytes.len();
+        frame[first_length_byte] ^= 0x01;
+        let (debug_tx, debug_rx) = mpsc::channel();
+        let mut parser = FrameParser::new(
+            config.framing.clone(),
+            config.payload.clone(),
+            config.output.clone(),
+            config.transmitter.preamble.clone(),
+            Some(debug_tx),
+        );
+
+        let outputs = parser.process(&[Arc::new(frame)]).unwrap().unwrap();
+        assert_eq!(outputs.len(), 1);
+        assert_eq!(outputs[0].payload, "Hello");
+
+        let mut saw_repair = false;
+        while let Ok(event) = debug_rx.try_recv() {
+            if let RxDebugEvent::Metric { name, value, .. } = event {
+                if name == "length_header_repaired" && value == 1.0 {
+                    saw_repair = true;
+                }
+            }
+        }
+
+        assert!(saw_repair);
+    }
+
+    #[test]
+    fn parser_trims_trailing_demod_bytes_using_length_header() {
+        let config = test_config();
+        let builder = FrameBuilder::new(
+            "FF:FF:FF:FF:FF:FF".parse().unwrap(),
+            "00:11:22:33:44:55".parse().unwrap(),
+            config.framing.crc.clone(),
+            config.transmitter.preamble.clone(),
+        );
+        let mut frame = builder.build_frame(b"Hello");
+        frame.push(*frame.last().unwrap());
+        let (debug_tx, debug_rx) = mpsc::channel();
+        let mut parser = FrameParser::new(
+            config.framing.clone(),
+            config.payload.clone(),
+            config.output.clone(),
+            config.transmitter.preamble.clone(),
+            Some(debug_tx),
+        );
+
+        let outputs = parser.process(&[Arc::new(frame)]).unwrap().unwrap();
+        assert_eq!(outputs.len(), 1);
+        assert_eq!(outputs[0].payload, "Hello");
+
+        let mut saw_trim_warning = false;
+        while let Ok(event) = debug_rx.try_recv() {
+            if let RxDebugEvent::Warning { detail, .. } = event {
+                if detail.contains("trimmed trailing demod bytes: 1") {
+                    saw_trim_warning = true;
+                }
+            }
+        }
+
+        assert!(saw_trim_warning);
     }
 }

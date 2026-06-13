@@ -3,6 +3,12 @@ use crc::{Crc, CRC_32_ISO_HDLC};
 use std::fmt;
 use std::str::FromStr;
 
+pub const LENGTH_FIELD_BYTES: usize = 2;
+pub const LENGTH_REPETITIONS: usize = 3;
+pub const REPEATED_LENGTH_HEADER_BYTES: usize = LENGTH_FIELD_BYTES * LENGTH_REPETITIONS;
+pub const MAC_ADDRESS_BYTES: usize = 6;
+pub const CRC_BYTES: usize = 4;
+
 #[derive(Debug, Clone)]
 pub struct MacAddress(pub [u8; 6]);
 
@@ -27,8 +33,8 @@ impl FromStr for MacAddress {
 
         let mut bytes = [0u8; 6];
         for (index, part) in parts.iter().enumerate() {
-            bytes[index] = u8::from_str_radix(part, 16)
-                .map_err(|_| format!("Invalid MAC octet: {}", part))?;
+            bytes[index] =
+                u8::from_str_radix(part, 16).map_err(|_| format!("Invalid MAC octet: {}", part))?;
         }
 
         Ok(MacAddress(bytes))
@@ -59,18 +65,31 @@ impl FrameBuilder {
     }
 
     pub fn build_frame(&self, payload: &[u8]) -> Vec<u8> {
-        let mut frame = Vec::with_capacity(
-            self.preamble.bytes.len() + self.destination_mac.0.len() + self.source_mac.0.len() + payload.len() + 4,
+        let body_len =
+            self.destination_mac.0.len() + self.source_mac.0.len() + payload.len() + CRC_BYTES;
+        assert!(
+            body_len <= u16::MAX as usize,
+            "frame body length exceeds 16-bit length header"
         );
+
+        let mut frame =
+            Vec::with_capacity(self.preamble.bytes.len() + REPEATED_LENGTH_HEADER_BYTES + body_len);
 
         for byte in &self.preamble.bytes {
             frame.push(byte.as_bytes()[0]);
         }
+
+        let length_bytes = (body_len as u16).to_le_bytes();
+        for _ in 0..LENGTH_REPETITIONS {
+            frame.extend_from_slice(&length_bytes);
+        }
+
+        let body_start = frame.len();
         frame.extend_from_slice(&self.destination_mac.0);
         frame.extend_from_slice(&self.source_mac.0);
         frame.extend_from_slice(payload);
 
-        let crc = self.compute_crc(&frame[self.preamble.bytes.len()..]);
+        let crc = self.compute_crc(&frame[body_start..]);
         frame.extend_from_slice(&crc.to_le_bytes());
 
         frame
@@ -99,13 +118,26 @@ mod tests {
             xor_out: "0xFFFFFFFF".to_string(),
             reflect_in: true,
             reflect_out: true,
-            covers: vec!["destination_mac".to_string(), "source_mac".to_string(), "payload".to_string()],
+            covers: vec![
+                "destination_mac".to_string(),
+                "source_mac".to_string(),
+                "payload".to_string(),
+            ],
         }
     }
 
     fn default_preamble() -> PreambleConfig {
         PreambleConfig {
-            bytes: vec!["F".to_string(), "i".to_string(), "S".to_string(), "h".to_string(), "N".to_string(), "e".to_string(), "T".to_string(), ":".to_string()],
+            bytes: vec![
+                "F".to_string(),
+                "i".to_string(),
+                "S".to_string(),
+                "h".to_string(),
+                "N".to_string(),
+                "e".to_string(),
+                "T".to_string(),
+                ":".to_string(),
+            ],
             length_bytes: 8,
         }
     }
@@ -120,10 +152,32 @@ mod tests {
         );
         let payload = b"Hello";
         let frame = builder.build_frame(payload);
+        let preamble_len = 8;
+        let body_len = 6 + 6 + payload.len() + CRC_BYTES;
 
         assert!(frame.starts_with(b"FiShNeT:"));
-        assert_eq!(frame[8..14], [0xFF; 6]);
-        assert_eq!(frame[14..20], [0x00, 0x11, 0x22, 0x33, 0x44, 0x55]);
-        assert_eq!(frame.len(), 8 + 6 + 6 + payload.len() + 4);
+        assert_eq!(
+            frame[preamble_len..preamble_len + 2],
+            (body_len as u16).to_le_bytes()
+        );
+        assert_eq!(
+            frame[preamble_len + 2..preamble_len + 4],
+            (body_len as u16).to_le_bytes()
+        );
+        assert_eq!(
+            frame[preamble_len + 4..preamble_len + 6],
+            (body_len as u16).to_le_bytes()
+        );
+
+        let body_start = preamble_len + REPEATED_LENGTH_HEADER_BYTES;
+        assert_eq!(frame[body_start..body_start + 6], [0xFF; 6]);
+        assert_eq!(
+            frame[body_start + 6..body_start + 12],
+            [0x00, 0x11, 0x22, 0x33, 0x44, 0x55]
+        );
+        assert_eq!(
+            frame.len(),
+            preamble_len + REPEATED_LENGTH_HEADER_BYTES + body_len
+        );
     }
 }

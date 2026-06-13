@@ -28,15 +28,20 @@ FishNet Radio Modem v2 is a narrowband, 256-ary FSK modem that transmits Etherne
 
 ## 3. Frame format
 
-Frames are built from an Ethernet-II-like structure with only MAC addresses, payload, and CRC-32.
+Frames are built from a short modem header followed by an Ethernet-II-like body with MAC
+addresses, payload, and CRC-32.
 
 - Preamble: `8 bytes` with ASCII values `F i S h N e T :`
+- Length header: `2 bytes`, little-endian body length, repeated `3` times
+  for simple majority-vote forward error correction
 - Destination MAC address: `6 bytes`
 - Source MAC address: `6 bytes`
 - Payload: UTF-8 string bytes
 - CRC-32: covers destination MAC, source MAC, and payload
 
-No minimum frame length is required. The receiver accepts the broadcast MAC address as a valid destination.
+The length header describes the number of bytes after the repeated length sequence:
+destination MAC, source MAC, payload, and CRC-32. No minimum payload length is
+required. The receiver accepts the broadcast MAC address as a valid destination.
 
 ## 4. Transmitter design
 
@@ -44,11 +49,13 @@ No minimum frame length is required. The receiver accepts the broadcast MAC addr
 
 - Input is a UTF-8 string payload.
 - The modem constructs the transmit frame as:
+  - `Preamble (8 bytes)`
+  - `Length header (2 bytes)` repeated `3` times
   - `Destination MAC (6 bytes)`
   - `Source MAC (6 bytes)`
   - `Payload bytes`
   - `CRC-32` computed over destination MAC, source MAC, and payload
-- The preamble is prepended before waveform generation.
+- The repeated length header is not included in the CRC-32.
 
 ### 4.2 Symbol mapping
 
@@ -94,7 +101,7 @@ flowchart TD
 ### 5.2 Stage 2: Coarse acquisition and tracking
 
 - Build a time-frequency image from consecutive FFT rows.
-- Discard unused bins in the middle of the spectrum: `144..367`.
+- Discard unused bins in the middle of the spectrum: `541..1503`.
 - Interpret each symbol as `4` FFT rows.
 - Preamble length is `32` rows, with a search buffer depth of `36` rows.
 - Receiver nominal symbol bins are spaced every 4 FFT bins in the `2048` grid:
@@ -132,10 +139,14 @@ flowchart TD
   - Map the peak bin index back to a byte value `0..255`.
 - Assemble the received bytes into a frame.
 - Parse frame fields:
+  - Preamble
+  - Repeated length header
   - Destination MAC
   - Source MAC
   - Payload
   - CRC-32
+- Majority-vote the three length header copies and use the decoded length to
+  delimit the frame body.
 - Validate CRC-32 over destination MAC, source MAC, and payload.
 - Validate destination MAC against local unicast or broadcast address.
 - If validation succeeds, output the payload string and source MAC address.
@@ -167,11 +178,10 @@ flowchart TD
 
 - The modem is coherent in Stage 1 and performs symbol synchronization in Stage 2.
 - Frame validation is strict: incorrect CRC or wrong destination MAC means drop.
-- The preamble is used only for acquisition and not part of the frame CRC.
+- The preamble and repeated length header are not part of the frame CRC.
 
 ## 8. Notes
 
 - The transmitter uses exactly one active tone per symbol, so the link is FSK rather than OFDM.
 - The valid bin mapping is symmetric: one contiguous block low and one symmetric block high.
 - This document is the complete modem specification for the current design.
-

@@ -13,6 +13,14 @@ pub struct CfarDetector {
     seq: u64,
 }
 
+#[derive(Debug, Clone)]
+pub struct CfarDecision {
+    pub image: Arc<TimeFrequencyImage>,
+    pub detected: bool,
+    pub noise_floor: f64,
+    pub peak_to_average: f64,
+}
+
 impl CfarDetector {
     pub fn new(config: ReceiverConfig, debug_tx: Option<RxDebugTx>) -> Self {
         CfarDetector {
@@ -23,40 +31,19 @@ impl CfarDetector {
             seq: 0,
         }
     }
-}
 
-impl StreamOperatorManagement for CfarDetector {
-    fn reset(&mut self) -> Result<(), ErrorsJSL> {
-        self.seq = 0;
-        self.noise_floor.clear();
-        Ok(())
-    }
-
-    fn finalize(&mut self) -> Result<(), ErrorsJSL> {
-        Ok(())
-    }
-}
-
-impl StreamOperator<Arc<TimeFrequencyImage>, Arc<TimeFrequencyImage>> for CfarDetector {
-    fn flush(&mut self) -> Result<Option<Vec<Arc<TimeFrequencyImage>>>, ErrorsJSL> {
-        Ok(None)
-    }
-
-    fn process(
-        &mut self,
-        data_in: &[Arc<TimeFrequencyImage>],
-    ) -> Result<Option<Vec<Arc<TimeFrequencyImage>>>, ErrorsJSL> {
-        let image = data_in.first().map(|a| (&**a).clone()).unwrap_or_default();
+    pub fn analyze(&mut self, image: Arc<TimeFrequencyImage>) -> CfarDecision {
         self.seq += 1;
 
         let row_energies: Vec<f64> = image
             .iter()
-            .map(|row| row.iter().map(|sample| sample.norm_sqr() as f64).sum::<f64>())
+            .map(|row| {
+                row.iter()
+                    .map(|sample| sample.norm_sqr() as f64)
+                    .sum::<f64>()
+            })
             .collect();
-        let peak_energy = row_energies
-            .iter()
-            .copied()
-            .fold(0.0_f64, f64::max);
+        let peak_energy = row_energies.iter().copied().fold(0.0_f64, f64::max);
         let average_energy = if row_energies.is_empty() {
             0.0
         } else {
@@ -68,14 +55,10 @@ impl StreamOperator<Arc<TimeFrequencyImage>, Arc<TimeFrequencyImage>> for CfarDe
         } else {
             self.noise_floor.iter().sum::<f64>() / self.noise_floor.len() as f64
         };
-        let ratio = if noise_floor > 0.0 {
-            peak_energy / noise_floor
-        } else {
-            0.0
-        };
+        let ratio = peak_energy / noise_floor.max(1.0);
         let detected = ratio >= self.peak_to_average_ratio;
 
-        if !detected && average_energy > 0.0 {
+        if !detected {
             if self.noise_floor.len() >= self.non_detect_average_rows {
                 self.noise_floor.pop_front();
             }
@@ -89,6 +72,33 @@ impl StreamOperator<Arc<TimeFrequencyImage>, Arc<TimeFrequencyImage>> for CfarDe
                 seq: self.seq,
                 name: "noise_floor",
                 value: noise_floor,
+            },
+        );
+        emit_debug(
+            &self.debug_tx,
+            RxDebugEvent::Metric {
+                stage: RxStageId::Cfar,
+                seq: self.seq,
+                name: "average_energy",
+                value: average_energy,
+            },
+        );
+        emit_debug(
+            &self.debug_tx,
+            RxDebugEvent::Metric {
+                stage: RxStageId::Cfar,
+                seq: self.seq,
+                name: "peak_energy",
+                value: peak_energy,
+            },
+        );
+        emit_debug(
+            &self.debug_tx,
+            RxDebugEvent::Metric {
+                stage: RxStageId::Cfar,
+                seq: self.seq,
+                name: "noise_history_rows",
+                value: self.noise_floor.len() as f64,
             },
         );
         emit_debug(
@@ -120,7 +130,43 @@ impl StreamOperator<Arc<TimeFrequencyImage>, Arc<TimeFrequencyImage>> for CfarDe
                     cols: image.first().map(|row| row.len()).unwrap_or(0),
                 },
             );
-            Ok(Some(vec![Arc::new(image)]))
+        }
+
+        CfarDecision {
+            image,
+            detected,
+            noise_floor,
+            peak_to_average: ratio,
+        }
+    }
+}
+
+impl StreamOperatorManagement for CfarDetector {
+    fn reset(&mut self) -> Result<(), ErrorsJSL> {
+        self.seq = 0;
+        self.noise_floor.clear();
+        Ok(())
+    }
+
+    fn finalize(&mut self) -> Result<(), ErrorsJSL> {
+        Ok(())
+    }
+}
+
+impl StreamOperator<Arc<TimeFrequencyImage>, Arc<TimeFrequencyImage>> for CfarDetector {
+    fn flush(&mut self) -> Result<Option<Vec<Arc<TimeFrequencyImage>>>, ErrorsJSL> {
+        Ok(None)
+    }
+
+    fn process(
+        &mut self,
+        data_in: &[Arc<TimeFrequencyImage>],
+    ) -> Result<Option<Vec<Arc<TimeFrequencyImage>>>, ErrorsJSL> {
+        let image = data_in.first().cloned().unwrap_or_default();
+        let decision = self.analyze(image);
+
+        if decision.detected {
+            Ok(Some(vec![decision.image]))
         } else {
             Ok(None)
         }
@@ -196,6 +242,40 @@ mod tests {
             }
         }
 
+        assert!(saw_detection_message);
+    }
+
+    #[test]
+    fn cfar_learns_zero_energy_gaps() {
+        let (debug_tx, debug_rx) = mpsc::channel();
+        let mut cfar = CfarDetector::new(test_receiver_config(), Some(debug_tx));
+        let burst = vec![vec![Complex::new(4.0, 0.0); 8]];
+        let quiet = vec![vec![Complex::new(0.0, 0.0); 8]];
+
+        assert!(cfar.process(&[Arc::new(burst.clone())]).unwrap().is_none());
+        assert!(cfar.process(&[Arc::new(quiet.clone())]).unwrap().is_none());
+        assert!(cfar.process(&[Arc::new(quiet)]).unwrap().is_none());
+
+        let outputs = cfar.process(&[Arc::new(burst)]).unwrap().unwrap();
+        assert_eq!(outputs.len(), 1);
+
+        let mut saw_zero_average = false;
+        let mut saw_detection_message = false;
+        while let Ok(event) = debug_rx.try_recv() {
+            match event {
+                RxDebugEvent::Metric { name, value, .. }
+                    if name == "average_energy" && value == 0.0 =>
+                {
+                    saw_zero_average = true
+                }
+                RxDebugEvent::Message { summary, .. } if summary.contains("detected=true") => {
+                    saw_detection_message = true
+                }
+                _ => {}
+            }
+        }
+
+        assert!(saw_zero_average);
         assert!(saw_detection_message);
     }
 }

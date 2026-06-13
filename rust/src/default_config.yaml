@@ -60,8 +60,8 @@ receiver:
   preamble_rows: 32
   search_buffer_rows: 36
   discard_bins:
-    - start: 144
-      end: 367
+    - start: 541
+      end: 1503
   nominal_rx_bins:
     low_block:
       start: 32
