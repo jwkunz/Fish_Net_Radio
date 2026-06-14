@@ -21,14 +21,19 @@ impl ModemTX {
         let frame_builder = FrameBuilder::new(
             destination_mac,
             source_mac,
-            config.framing.crc.clone(),
             config.transmitter.preamble.clone(),
         );
 
         let waveform_generator = WaveformGenerator::new(
             config.transmitter.ifft_size,
-            (config.transmitter.valid_bins.low_block.start, config.transmitter.valid_bins.low_block.end),
-            (config.transmitter.valid_bins.high_block.start, config.transmitter.valid_bins.high_block.end),
+            (
+                config.transmitter.valid_bins.low_block.start,
+                config.transmitter.valid_bins.low_block.end,
+            ),
+            (
+                config.transmitter.valid_bins.high_block.start,
+                config.transmitter.valid_bins.high_block.end,
+            ),
         );
 
         Ok(ModemTX {

@@ -1,3 +1,6 @@
+# FishNet Radio modem configuration template.
+# This file lists runtime knobs currently consumed by the modem.
+
 sample_rate_hz: 96000
 gnuradio_instance_address_tx: "127.0.0.1"
 gnuradio_instance_port_tx: "20002"

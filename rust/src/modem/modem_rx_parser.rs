@@ -125,7 +125,7 @@ impl FrameParser {
             if Some(destination.clone()) == configured_destination {
                 return true;
             }
-            if self.output.allow_broadcast || self.framing.mac.allow_broadcast {
+            if self.output.allow_broadcast {
                 return *destination == broadcast;
             }
             return false;
@@ -308,29 +308,13 @@ impl StreamOperator<Arc<FrameBytes>, RxMessage> for FrameParser {
 mod tests {
     use super::*;
     use crate::modem::modem_configuration::{
-        BinBlock, CfarConfig, CrcConfig, DebugLoggingLevel, DopplerConfig, FramingConfig,
-        MacConfig, ModemConfiguration, NominalRxBins, OutputConfig, PayloadConfig, PreambleConfig,
-        ReceiverConfig, RxBinBlock, TrackingConfig,
+        BinBlock, CfarConfig, DebugLoggingLevel, FramingConfig, MacConfig, ModemConfiguration,
+        NominalRxBins, OutputConfig, PayloadConfig, PreambleConfig, ReceiverConfig, RxBinBlock,
+        TrackingConfig,
     };
     use crate::modem::modem_frame::FrameBuilder;
     use crate::modem::modem_rx_debug::RxDebugEvent;
     use std::sync::mpsc;
-
-    fn default_crc_config() -> CrcConfig {
-        CrcConfig {
-            r#type: "CRC-32".to_string(),
-            polynomial: "0x04C11DB7".to_string(),
-            init: "0xFFFFFFFF".to_string(),
-            xor_out: "0xFFFFFFFF".to_string(),
-            reflect_in: true,
-            reflect_out: true,
-            covers: vec![
-                "destination_mac".to_string(),
-                "source_mac".to_string(),
-                "payload".to_string(),
-            ],
-        }
-    }
 
     fn default_preamble() -> PreambleConfig {
         PreambleConfig {
@@ -344,28 +328,19 @@ mod tests {
                 "T".to_string(),
                 ":".to_string(),
             ],
-            length_bytes: 8,
         }
     }
 
     fn test_config() -> ModemConfiguration {
         ModemConfiguration {
-            name: "test".to_string(),
-            description: "test".to_string(),
             gnuradio_instance_address_tx: "127.0.0.1".to_string(),
             gnuradio_instance_port_tx: "20002".to_string(),
             gnuradio_instance_address_rx: "127.0.0.1".to_string(),
             gnuradio_instance_port_rx: "20001".to_string(),
             sample_rate_hz: 1_000_000.0,
-            bits_per_symbol: 8,
-            symbol_duration_samples: 512,
-            raw_data_rate_bps: 15_625.0,
-            spectral_efficiency: 0.0,
             transmitter: crate::modem::modem_configuration::TransmitterConfig {
                 ifft_size: 512,
-                symbol_samples: 512,
                 idle_fill_samples: 16_384,
-                output_format: "complex_f32".to_string(),
                 valid_bins: crate::modem::modem_configuration::ValidBinBlocks {
                     low_block: crate::modem::modem_configuration::BinBlock { start: 8, end: 135 },
                     high_block: crate::modem::modem_configuration::BinBlock {
@@ -373,29 +348,13 @@ mod tests {
                         end: 503,
                     },
                 },
-                bin_mapping: crate::modem::modem_configuration::BinMapping {
-                    scheme: "contiguous".to_string(),
-                    low_symbol_range: crate::modem::modem_configuration::SymbolRange {
-                        start: 0,
-                        end: 127,
-                    },
-                    high_symbol_range: crate::modem::modem_configuration::SymbolRange {
-                        start: 128,
-                        end: 255,
-                    },
-                    description: "test".to_string(),
-                },
                 preamble: default_preamble(),
             },
             framing: FramingConfig {
                 mac: MacConfig {
-                    destination_length_bytes: 6,
-                    source_length_bytes: 6,
-                    allow_broadcast: true,
                     destination_mac: "FF:FF:FF:FF:FF:FF".to_string(),
                     source_mac: "00:11:22:33:44:55".to_string(),
                 },
-                crc: default_crc_config(),
             },
             receiver: ReceiverConfig {
                 fft_size: 8,
@@ -415,12 +374,6 @@ mod tests {
                         end: 7,
                         step: 1,
                     },
-                    description: "test".to_string(),
-                },
-                doppler: DopplerConfig {
-                    search_bin_range: 0,
-                    search_row_offset: 0,
-                    description: "test".to_string(),
                 },
                 cfar: CfarConfig {
                     non_detect_average_rows: 2,
@@ -434,7 +387,6 @@ mod tests {
             },
             payload: PayloadConfig {
                 encoding: "utf-8".to_string(),
-                interpret_as: "string".to_string(),
             },
             output: OutputConfig {
                 deliver_payload: true,
@@ -442,7 +394,6 @@ mod tests {
                 validate_destination_mac: true,
                 allow_broadcast: true,
             },
-            notes: None,
         }
     }
 
@@ -452,7 +403,6 @@ mod tests {
         let builder = FrameBuilder::new(
             "FF:FF:FF:FF:FF:FF".parse().unwrap(),
             "00:11:22:33:44:55".parse().unwrap(),
-            config.framing.crc.clone(),
             config.transmitter.preamble.clone(),
         );
         let frame = builder.build_frame(b"Hello");
@@ -488,7 +438,6 @@ mod tests {
         let builder = FrameBuilder::new(
             "FF:FF:FF:FF:FF:FF".parse().unwrap(),
             "00:11:22:33:44:55".parse().unwrap(),
-            config.framing.crc.clone(),
             config.transmitter.preamble.clone(),
         );
         let mut frame = builder.build_frame(b"Hello");
@@ -525,7 +474,6 @@ mod tests {
         let builder = FrameBuilder::new(
             "FF:FF:FF:FF:FF:FF".parse().unwrap(),
             "00:11:22:33:44:55".parse().unwrap(),
-            config.framing.crc.clone(),
             config.transmitter.preamble.clone(),
         );
         let mut frame = builder.build_frame(b"Hello");

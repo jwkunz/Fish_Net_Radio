@@ -93,8 +93,8 @@ impl StreamOperator<Arc<SymbolStream>, Arc<FrameBytes>> for Demodulator {
 mod tests {
     use super::*;
     use crate::modem::modem_configuration::{
-        BinBlock, CfarConfig, DebugLoggingLevel, DopplerConfig, NominalRxBins, ReceiverConfig,
-        RxBinBlock, TrackingConfig,
+        BinBlock, CfarConfig, DebugLoggingLevel, NominalRxBins, ReceiverConfig, RxBinBlock,
+        TrackingConfig,
     };
     use crate::modem::modem_rx_debug::RxDebugEvent;
     use std::sync::mpsc;
@@ -118,12 +118,6 @@ mod tests {
                     end: 7,
                     step: 1,
                 },
-                description: "test".to_string(),
-            },
-            doppler: DopplerConfig {
-                search_bin_range: 0,
-                search_row_offset: 0,
-                description: "test".to_string(),
             },
             cfar: CfarConfig {
                 non_detect_average_rows: 2,
@@ -143,7 +137,10 @@ mod tests {
         let mut demod = Demodulator::new(test_receiver_config(), Some(debug_tx));
         let symbols = vec![1u8, 2, 3, 4];
 
-        let outputs = demod.process(&[Arc::new(symbols.clone())]).unwrap().unwrap();
+        let outputs = demod
+            .process(&[Arc::new(symbols.clone())])
+            .unwrap()
+            .unwrap();
         assert_eq!(outputs.len(), 1);
         assert_eq!(outputs[0].as_ref(), &symbols);
 
@@ -152,7 +149,9 @@ mod tests {
         while let Ok(event) = debug_rx.try_recv() {
             match event {
                 RxDebugEvent::Metric { name, .. } if name == "input_bytes" => saw_input = true,
-                RxDebugEvent::Snapshot { label, .. } if label == "frame_bytes" => saw_snapshot = true,
+                RxDebugEvent::Snapshot { label, .. } if label == "frame_bytes" => {
+                    saw_snapshot = true
+                }
                 _ => {}
             }
         }

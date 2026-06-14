@@ -562,8 +562,7 @@ fn format_byte_preview(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
     use crate::modem::modem_configuration::{
-        BinBlock, CfarConfig, DebugLoggingLevel, DopplerConfig, NominalRxBins, ReceiverConfig,
-        TrackingConfig,
+        BinBlock, CfarConfig, DebugLoggingLevel, NominalRxBins, ReceiverConfig, TrackingConfig,
     };
     use crate::modem::modem_rx_debug::RxDebugEvent;
     use num_complex::Complex;
@@ -588,12 +587,6 @@ mod tests {
                     end: 7,
                     step: 1,
                 },
-                description: "test".to_string(),
-            },
-            doppler: DopplerConfig {
-                search_bin_range: 0,
-                search_row_offset: 0,
-                description: "test".to_string(),
             },
             cfar: CfarConfig {
                 non_detect_average_rows: 2,
@@ -626,12 +619,6 @@ mod tests {
                     end: 255,
                     step: 1,
                 },
-                description: "test".to_string(),
-            },
-            doppler: DopplerConfig {
-                search_bin_range: 0,
-                search_row_offset: 0,
-                description: "test".to_string(),
             },
             cfar: CfarConfig {
                 non_detect_average_rows: 2,
@@ -648,14 +635,12 @@ mod tests {
     fn test_preamble() -> PreambleConfig {
         PreambleConfig {
             bytes: vec!["F".to_string(), "i".to_string()],
-            length_bytes: 2,
         }
     }
 
     fn tracking_preamble() -> PreambleConfig {
         PreambleConfig {
             bytes: vec!["A".to_string(), "B".to_string()],
-            length_bytes: 2,
         }
     }
 

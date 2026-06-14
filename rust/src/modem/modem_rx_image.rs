@@ -99,8 +99,8 @@ impl StreamOperator<Arc<SpectrumFrame>, Arc<TimeFrequencyImage>> for ImageBuilde
 mod tests {
     use super::*;
     use crate::modem::modem_configuration::{
-        BinBlock, CfarConfig, DebugLoggingLevel, DopplerConfig, NominalRxBins, ReceiverConfig,
-        RxBinBlock, TrackingConfig,
+        BinBlock, CfarConfig, DebugLoggingLevel, NominalRxBins, ReceiverConfig, RxBinBlock,
+        TrackingConfig,
     };
     use crate::modem::modem_rx_debug::RxDebugEvent;
     use num_complex::Complex;
@@ -125,12 +125,6 @@ mod tests {
                     end: 7,
                     step: 1,
                 },
-                description: "test".to_string(),
-            },
-            doppler: DopplerConfig {
-                search_bin_range: 0,
-                search_row_offset: 0,
-                description: "test".to_string(),
             },
             cfar: CfarConfig {
                 non_detect_average_rows: 1,
@@ -148,9 +142,7 @@ mod tests {
     fn image_builder_rolls_rows_and_zeros_discard_bins() {
         let (debug_tx, debug_rx) = mpsc::channel();
         let mut builder = ImageBuilder::new(test_receiver_config(), Some(debug_tx));
-        let spectrum: SpectrumFrame = (0..8)
-            .map(|idx| Complex::new(idx as f32, 0.0))
-            .collect();
+        let spectrum: SpectrumFrame = (0..8).map(|idx| Complex::new(idx as f32, 0.0)).collect();
 
         let outputs = builder.process(&[Arc::new(spectrum)]).unwrap().unwrap();
         assert_eq!(outputs.len(), 1);
@@ -161,7 +153,13 @@ mod tests {
 
         let mut saw_snapshot = false;
         while let Ok(event) = debug_rx.try_recv() {
-            if matches!(event, RxDebugEvent::Snapshot { label: "time_frequency_image", .. }) {
+            if matches!(
+                event,
+                RxDebugEvent::Snapshot {
+                    label: "time_frequency_image",
+                    ..
+                }
+            ) {
                 saw_snapshot = true;
             }
         }

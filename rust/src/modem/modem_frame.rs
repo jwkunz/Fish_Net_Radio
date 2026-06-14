@@ -1,4 +1,4 @@
-use crate::modem::modem_configuration::{CrcConfig, PreambleConfig};
+use crate::modem::modem_configuration::PreambleConfig;
 use crc::{Crc, CRC_32_ISO_HDLC};
 use std::fmt;
 use std::str::FromStr;
@@ -45,7 +45,6 @@ impl FromStr for MacAddress {
 pub struct FrameBuilder {
     pub destination_mac: MacAddress,
     pub source_mac: MacAddress,
-    pub crc_config: CrcConfig,
     pub preamble: PreambleConfig,
 }
 
@@ -53,13 +52,11 @@ impl FrameBuilder {
     pub fn new(
         destination_mac: MacAddress,
         source_mac: MacAddress,
-        crc_config: CrcConfig,
         preamble: PreambleConfig,
     ) -> Self {
         FrameBuilder {
             destination_mac,
             source_mac,
-            crc_config,
             preamble,
         }
     }
@@ -107,24 +104,7 @@ impl FrameBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::modem::modem_configuration::CrcConfig;
     use crate::modem::modem_configuration::PreambleConfig;
-
-    fn default_crc_config() -> CrcConfig {
-        CrcConfig {
-            r#type: "CRC-32".to_string(),
-            polynomial: "0x04C11DB7".to_string(),
-            init: "0xFFFFFFFF".to_string(),
-            xor_out: "0xFFFFFFFF".to_string(),
-            reflect_in: true,
-            reflect_out: true,
-            covers: vec![
-                "destination_mac".to_string(),
-                "source_mac".to_string(),
-                "payload".to_string(),
-            ],
-        }
-    }
 
     fn default_preamble() -> PreambleConfig {
         PreambleConfig {
@@ -138,7 +118,6 @@ mod tests {
                 "T".to_string(),
                 ":".to_string(),
             ],
-            length_bytes: 8,
         }
     }
 
@@ -147,7 +126,6 @@ mod tests {
         let builder = FrameBuilder::new(
             "FF:FF:FF:FF:FF:FF".parse().unwrap(),
             "00:11:22:33:44:55".parse().unwrap(),
-            default_crc_config(),
             default_preamble(),
         );
         let payload = b"Hello";

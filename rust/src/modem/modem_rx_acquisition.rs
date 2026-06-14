@@ -45,7 +45,11 @@ impl StreamOperator<Arc<TimeFrequencyImage>, Arc<TimeFrequencyImage>> for Acquis
 
         let row_energies: Vec<f64> = image
             .iter()
-            .map(|row| row.iter().map(|sample| sample.norm_sqr() as f64).sum::<f64>())
+            .map(|row| {
+                row.iter()
+                    .map(|sample| sample.norm_sqr() as f64)
+                    .sum::<f64>()
+            })
             .collect();
         let peak_row = row_energies
             .iter()
@@ -116,8 +120,8 @@ impl StreamOperator<Arc<TimeFrequencyImage>, Arc<TimeFrequencyImage>> for Acquis
 mod tests {
     use super::*;
     use crate::modem::modem_configuration::{
-        BinBlock, CfarConfig, DebugLoggingLevel, DopplerConfig, NominalRxBins, ReceiverConfig,
-        RxBinBlock, TrackingConfig,
+        BinBlock, CfarConfig, DebugLoggingLevel, NominalRxBins, ReceiverConfig, RxBinBlock,
+        TrackingConfig,
     };
     use crate::modem::modem_rx_debug::RxDebugEvent;
     use num_complex::Complex;
@@ -142,12 +146,6 @@ mod tests {
                     end: 7,
                     step: 1,
                 },
-                description: "test".to_string(),
-            },
-            doppler: DopplerConfig {
-                search_bin_range: 0,
-                search_row_offset: 0,
-                description: "test".to_string(),
             },
             cfar: CfarConfig {
                 non_detect_average_rows: 1,
