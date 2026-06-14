@@ -33,6 +33,18 @@ options:
     state: enabled
 
 blocks:
+- name: baseband_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: int(96E3)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [216, 152.0]
+    rotation: 0
+    state: enabled
 - name: center_frequency
   id: qtgui_msgdigitalnumbercontrol
   parameters:
@@ -56,6 +68,18 @@ blocks:
     bus_source: false
     bus_structure: null
     coordinate: [344, 8.0]
+    rotation: 0
+    state: enabled
+- name: channel_offset_hz
+  id: variable
+  parameters:
+    comment: ''
+    value: int(200E3)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [192, 224.0]
     rotation: 0
     state: enabled
 - name: enable_agc
@@ -142,7 +166,7 @@ blocks:
     start: '0'
     step: '3'
     stop: '73'
-    value: '20'
+    value: '60'
     widget: counter_slider
   states:
     bus_sink: false
@@ -187,6 +211,23 @@ blocks:
     coordinate: [1320, 32.0]
     rotation: 0
     state: enabled
+- name: blocks_freqshift_cc_0
+  id: blocks_freqshift_cc
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    freq: -channel_offset_hz
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    sample_rate: samp_rate
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [408, 480.0]
+    rotation: 0
+    state: enabled
 - name: blocks_null_sink_0_0_0
   id: blocks_null_sink
   parameters:
@@ -201,7 +242,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [832, 608.0]
+    coordinate: [1160, 552.0]
     rotation: 0
     state: enabled
 - name: blocks_null_sink_0_1
@@ -218,7 +259,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [856, 360.0]
+    coordinate: [1184, 304.0]
     rotation: 0
     state: enabled
 - name: blocks_selector_0_0_0
@@ -241,7 +282,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [616, 584.0]
+    coordinate: [944, 528.0]
     rotation: 0
     state: enabled
 - name: blocks_selector_0_1
@@ -264,7 +305,28 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [616, 456.0]
+    coordinate: [944, 400.0]
+    rotation: 0
+    state: enabled
+- name: pfb_arb_resampler_xxx_0
+  id: pfb_arb_resampler_xxx
+  parameters:
+    affinity: ''
+    alias: ''
+    atten: '100'
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    nfilts: '16'
+    rrate: 'baseband_rate/samp_rate '
+    samp_delay: '0'
+    taps: ''
+    type: ccf
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [608, 464.0]
     rotation: 0
     state: enabled
 - name: qtgui_sink_x_0_0
@@ -272,7 +334,7 @@ blocks:
   parameters:
     affinity: ''
     alias: ''
-    bw: samp_rate
+    bw: baseband_rate
     comment: ''
     fc: center_frequency
     fftsize: '1024'
@@ -293,7 +355,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [888, 408.0]
+    coordinate: [1216, 352.0]
     rotation: 0
     state: enabled
 - name: soapy_plutosdr_source_0
@@ -303,7 +365,7 @@ blocks:
     agc: enable_agc
     alias: ''
     bandwidth: '0.0'
-    center_freq: center_frequency
+    center_freq: center_frequency-channel_offset_hz
     comment: ''
     dev_args: 192.168.2.1
     gain: radio_gain_db
@@ -335,17 +397,19 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [824, 656.0]
+    coordinate: [1152, 600.0]
     rotation: 0
     state: enabled
 
 connections:
+- [blocks_freqshift_cc_0, '0', pfb_arb_resampler_xxx_0, '0']
 - [blocks_selector_0_0_0, '0', blocks_null_sink_0_0_0, '0']
 - [blocks_selector_0_0_0, '1', zeromq_push_sink_0_0, '0']
 - [blocks_selector_0_1, '0', blocks_null_sink_0_1, '0']
 - [blocks_selector_0_1, '1', qtgui_sink_x_0_0, '0']
-- [soapy_plutosdr_source_0, '0', blocks_selector_0_0_0, '0']
-- [soapy_plutosdr_source_0, '0', blocks_selector_0_1, '0']
+- [pfb_arb_resampler_xxx_0, '0', blocks_selector_0_0_0, '0']
+- [pfb_arb_resampler_xxx_0, '0', blocks_selector_0_1, '0']
+- [soapy_plutosdr_source_0, '0', blocks_freqshift_cc_0, '0']
 
 metadata:
   file_format: 1

@@ -33,6 +33,18 @@ options:
     state: enabled
 
 blocks:
+- name: baseband_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: int(96E3)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [200, 88.0]
+    rotation: 0
+    state: enabled
 - name: center_frequency
   id: qtgui_msgdigitalnumbercontrol
   parameters:
@@ -58,6 +70,18 @@ blocks:
     coordinate: [344, 8.0]
     rotation: 0
     state: enabled
+- name: channel_offset_hz
+  id: variable
+  parameters:
+    comment: ''
+    value: int(200E3)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [624, 616.0]
+    rotation: 0
+    state: enabled
 - name: enable_gui
   id: variable_qtgui_toggle_switch
   parameters:
@@ -79,7 +103,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [864, 160.0]
+    coordinate: [920, 160.0]
     rotation: 0
     state: enabled
 - name: enable_tx
@@ -103,7 +127,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [648, 24.0]
+    coordinate: [704, 24.0]
     rotation: 0
     state: enabled
 - name: gain_db
@@ -124,7 +148,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1472, 32.0]
+    coordinate: [1528, 32.0]
     rotation: 0
     state: enabled
 - name: radio_gain_db
@@ -139,13 +163,13 @@ blocks:
     start: '0'
     step: '3'
     stop: '47'
-    value: '10'
+    value: '47'
     widget: counter_slider
   states:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [896, 16.0]
+    coordinate: [952, 16.0]
     rotation: 0
     state: enabled
 - name: radio_source
@@ -169,25 +193,37 @@ blocks:
     options: '[0, 1, 2]'
     orient: Qt.QVBoxLayout
     type: int
-    value: '2'
+    value: '1'
     widget: combo_box
   states:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [648, 176.0]
+    coordinate: [704, 172.0]
     rotation: 0
     state: enabled
 - name: samp_rate
   id: variable
   parameters:
     comment: ''
-    value: int(2E6)
+    value: int(1E6)
   states:
     bus_sink: false
     bus_source: false
     bus_structure: null
     coordinate: [200, 12]
+    rotation: 0
+    state: enabled
+- name: tune_hz
+  id: variable
+  parameters:
+    comment: ''
+    value: '-22600'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1272, 128.0]
     rotation: 0
     state: enabled
 - name: waveform
@@ -323,7 +359,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [880, 792.0]
+    coordinate: [904, 952.0]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0
@@ -338,7 +374,7 @@ blocks:
     minoutbuf: '0'
     offset: waveform_offset
     phase: waveform_phase*2.0*357/113
-    samp_rate: samp_rate
+    samp_rate: baseband_rate
     showports: 'False'
     type: complex
     waveform: analog.GR_COS_WAVE
@@ -346,7 +382,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [728, 440.0]
+    coordinate: [752, 600.0]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0_0
@@ -361,7 +397,7 @@ blocks:
     minoutbuf: '0'
     offset: waveform_offset
     phase: waveform_phase*2.0*357/113
-    samp_rate: samp_rate
+    samp_rate: baseband_rate
     showports: 'False'
     type: complex
     waveform: analog.GR_SQR_WAVE
@@ -369,7 +405,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [632, 576.0]
+    coordinate: [656, 736.0]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0_0_0
@@ -384,7 +420,7 @@ blocks:
     minoutbuf: '0'
     offset: waveform_offset
     phase: waveform_phase*2.0*357/113
-    samp_rate: samp_rate
+    samp_rate: baseband_rate
     showports: 'False'
     type: complex
     waveform: analog.GR_TRI_WAVE
@@ -392,7 +428,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [808, 592.0]
+    coordinate: [832, 752.0]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0_0_0_0
@@ -407,7 +443,7 @@ blocks:
     minoutbuf: '0'
     offset: waveform_offset
     phase: waveform_phase*2.0*357/113
-    samp_rate: samp_rate
+    samp_rate: baseband_rate
     showports: 'False'
     type: complex
     waveform: analog.GR_SAW_WAVE
@@ -415,7 +451,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [688, 728.0]
+    coordinate: [712, 888.0]
     rotation: 0
     state: enabled
 - name: analog_sig_source_x_0_0_0_0_0
@@ -430,7 +466,7 @@ blocks:
     minoutbuf: '0'
     offset: waveform_offset
     phase: waveform_phase*2.0*357/113
-    samp_rate: samp_rate
+    samp_rate: baseband_rate
     showports: 'False'
     type: complex
     waveform: analog.GR_CONST_WAVE
@@ -438,7 +474,24 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [912, 448.0]
+    coordinate: [936, 608.0]
+    rotation: 0
+    state: enabled
+- name: blocks_freqshift_cc_0
+  id: blocks_freqshift_cc
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    freq: channel_offset_hz
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    sample_rate: samp_rate
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1928, 672.0]
     rotation: 0
     state: enabled
 - name: blocks_multiply_const_xx_0
@@ -456,7 +509,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1688, 520.0]
+    coordinate: [2096, 680.0]
     rotation: 0
     state: enabled
 - name: blocks_null_sink_0
@@ -473,7 +526,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [2208, 272.0]
+    coordinate: [2616, 432.0]
     rotation: 0
     state: enabled
 - name: blocks_null_sink_0_0
@@ -490,7 +543,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [2184, 544.0]
+    coordinate: [2592, 704.0]
     rotation: 0
     state: enabled
 - name: blocks_null_source_0
@@ -509,7 +562,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1216, 424.0]
+    coordinate: [1240, 584.0]
     rotation: 0
     state: enabled
 - name: blocks_selector_0
@@ -532,7 +585,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1968, 368.0]
+    coordinate: [2376, 528.0]
     rotation: 0
     state: enabled
 - name: blocks_selector_0_0
@@ -555,7 +608,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1968, 520.0]
+    coordinate: [2376, 680.0]
     rotation: 0
     state: enabled
 - name: blocks_selector_1
@@ -578,7 +631,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1456, 488.0]
+    coordinate: [1480, 648.0]
     rotation: 0
     state: enabled
 - name: blocks_selector_1_0
@@ -601,7 +654,28 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1104, 528.0]
+    coordinate: [1128, 688.0]
+    rotation: 0
+    state: enabled
+- name: pfb_arb_resampler_xxx_0
+  id: pfb_arb_resampler_xxx
+  parameters:
+    affinity: ''
+    alias: ''
+    atten: '100'
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    nfilts: '16'
+    rrate: samp_rate / baseband_rate
+    samp_delay: '0'
+    taps: ''
+    type: ccf
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1672, 656.0]
     rotation: 0
     state: enabled
 - name: qtgui_sink_x_0
@@ -611,14 +685,14 @@ blocks:
     alias: ''
     bw: samp_rate
     comment: ''
-    fc: center_frequency
+    fc: center_frequency-channel_offset_hz
     fftsize: '1024'
     gui_hint: 0,0,5,3
     maxoutbuf: '0'
     minoutbuf: '0'
     name: '"ADALM Pluto Receiver"'
     plotconst: 'True'
-    plotfreq: 'False'
+    plotfreq: 'True'
     plottime: 'True'
     plotwaterfall: 'True'
     rate: '10'
@@ -630,7 +704,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [2240, 320.0]
+    coordinate: [2648, 480.0]
     rotation: 0
     state: enabled
 - name: soapy_hackrf_sink_0
@@ -640,7 +714,7 @@ blocks:
     alias: ''
     amp: 'True'
     bandwidth: '0'
-    center_freq: center_frequency
+    center_freq: center_frequency+tune_hz-channel_offset_hz
     comment: ''
     dev_args: hackrf=0000000000000000f77c60dc2540a6c3
     samp_rate: samp_rate
@@ -650,7 +724,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [2232, 608.0]
+    coordinate: [2640, 768.0]
     rotation: 0
     state: enabled
 - name: zeromq_pull_source_0
@@ -672,7 +746,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [1160, 856.0]
+    coordinate: [1184, 1016.0]
     rotation: 0
     state: enabled
 
@@ -683,6 +757,7 @@ connections:
 - [analog_sig_source_x_0_0_0, '0', blocks_selector_1_0, '3']
 - [analog_sig_source_x_0_0_0_0, '0', blocks_selector_1_0, '4']
 - [analog_sig_source_x_0_0_0_0_0, '0', blocks_selector_1_0, '0']
+- [blocks_freqshift_cc_0, '0', blocks_multiply_const_xx_0, '0']
 - [blocks_multiply_const_xx_0, '0', blocks_selector_0, '0']
 - [blocks_multiply_const_xx_0, '0', blocks_selector_0_0, '0']
 - [blocks_null_source_0, '0', blocks_selector_1, '0']
@@ -690,8 +765,9 @@ connections:
 - [blocks_selector_0, '1', qtgui_sink_x_0, '0']
 - [blocks_selector_0_0, '0', blocks_null_sink_0_0, '0']
 - [blocks_selector_0_0, '1', soapy_hackrf_sink_0, '0']
-- [blocks_selector_1, '0', blocks_multiply_const_xx_0, '0']
+- [blocks_selector_1, '0', pfb_arb_resampler_xxx_0, '0']
 - [blocks_selector_1_0, '0', blocks_selector_1, '1']
+- [pfb_arb_resampler_xxx_0, '0', blocks_freqshift_cc_0, '0']
 - [zeromq_pull_source_0, '0', blocks_selector_1, '2']
 
 metadata:

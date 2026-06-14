@@ -13,6 +13,7 @@ from PyQt5 import Qt
 from gnuradio import qtgui
 from PyQt5 import QtCore
 from gnuradio import blocks
+import math
 from gnuradio import gr
 from gnuradio.filter import firdes
 from gnuradio.fft import window
@@ -24,6 +25,7 @@ from gnuradio.eng_arg import eng_float, intx
 from gnuradio import eng_notation
 from gnuradio import soapy
 from gnuradio import zeromq
+from gnuradio.filter import pfb
 import sip
 import threading
 
@@ -67,33 +69,43 @@ class harness_hackrf_rx(gr.top_block, Qt.QWidget):
         ##################################################
         self.zmq_push_offset = zmq_push_offset = 1
         self.zmq_base_port = zmq_base_port = 20000
+        self.vga_gain_db = vga_gain_db = 40
+        self.tune_hz = tune_hz = -21000
         self.samp_rate = samp_rate = int(1E6)
-        self.radio_gain_db = radio_gain_db = 20
-        self.enable_zmq = enable_zmq = 1
+        self.if_gain_db = if_gain_db = 20
+        self.enable_zmq = enable_zmq = 0
         self.enable_rx = enable_rx = 1
-        self.enable_agc = enable_agc = 0
+        self.channel_offset_hz = channel_offset_hz = int(200E3)
         self.center_frequency = center_frequency = 915E6
+        self.baseband_rate = baseband_rate = int(96E3)
 
         ##################################################
         # Blocks
         ##################################################
 
-        self._radio_gain_db_range = qtgui.Range(0, 40, 3, 20, 200)
-        self._radio_gain_db_win = qtgui.RangeWidget(self._radio_gain_db_range, self.set_radio_gain_db, "Radio Gain (dB)", "counter_slider", float, QtCore.Qt.Horizontal)
-        self.top_grid_layout.addWidget(self._radio_gain_db_win, 0, 2, 1, 1)
+        self._vga_gain_db_range = qtgui.Range(0, 62, 3, 40, 200)
+        self._vga_gain_db_win = qtgui.RangeWidget(self._vga_gain_db_range, self.set_vga_gain_db, "VGA Gain (dB)", "counter_slider", float, QtCore.Qt.Horizontal)
+        self.top_grid_layout.addWidget(self._vga_gain_db_win, 0, 3, 1, 1)
+        for r in range(0, 1):
+            self.top_grid_layout.setRowStretch(r, 1)
+        for c in range(3, 4):
+            self.top_grid_layout.setColumnStretch(c, 1)
+        self._if_gain_db_range = qtgui.Range(0, 40, 3, 20, 200)
+        self._if_gain_db_win = qtgui.RangeWidget(self._if_gain_db_range, self.set_if_gain_db, "IF Gain (dB)", "counter_slider", float, QtCore.Qt.Horizontal)
+        self.top_grid_layout.addWidget(self._if_gain_db_win, 0, 2, 1, 1)
         for r in range(0, 1):
             self.top_grid_layout.setRowStretch(r, 1)
         for c in range(2, 3):
             self.top_grid_layout.setColumnStretch(c, 1)
         self._enable_zmq_choices = {'Pressed': 1, 'Released': 0}
 
-        _enable_zmq_toggle_switch = qtgui.GrToggleSwitch(self.set_enable_zmq, f"Enable ZMQ Port {zmq_base_port+zmq_push_offset}", self._enable_zmq_choices, True, "green", "gray", 4, 50, 1, 1, self, 'value')
+        _enable_zmq_toggle_switch = qtgui.GrToggleSwitch(self.set_enable_zmq, f"Enable ZMQ Port {zmq_base_port+zmq_push_offset}", self._enable_zmq_choices, False, "green", "gray", 4, 50, 1, 1, self, 'value')
         self.enable_zmq = _enable_zmq_toggle_switch
 
-        self.top_grid_layout.addWidget(_enable_zmq_toggle_switch, 0, 3, 1, 1)
+        self.top_grid_layout.addWidget(_enable_zmq_toggle_switch, 0, 4, 1, 1)
         for r in range(0, 1):
             self.top_grid_layout.setRowStretch(r, 1)
-        for c in range(3, 4):
+        for c in range(4, 5):
             self.top_grid_layout.setColumnStretch(c, 1)
         self._enable_rx_choices = {'Pressed': 1, 'Released': 0}
 
@@ -110,10 +122,10 @@ class harness_hackrf_rx(gr.top_block, Qt.QWidget):
         self._center_frequency_msgdigctl_win.setReadOnly(False)
         self.center_frequency = self._center_frequency_msgdigctl_win
 
-        self.top_grid_layout.addWidget(self._center_frequency_msgdigctl_win, 0, 4, 1, 1)
+        self.top_grid_layout.addWidget(self._center_frequency_msgdigctl_win, 0, 5, 1, 1)
         for r in range(0, 1):
             self.top_grid_layout.setRowStretch(r, 1)
-        for c in range(4, 5):
+        for c in range(5, 6):
             self.top_grid_layout.setColumnStretch(c, 1)
         self.zeromq_push_sink_0_0 = zeromq.push_sink(gr.sizeof_gr_complex, 1, f"tcp://127.0.0.1:{zmq_base_port+zmq_push_offset}", 100, False, (-1), True)
         self.soapy_hackrf_source_0 = None
@@ -126,15 +138,15 @@ class harness_hackrf_rx(gr.top_block, Qt.QWidget):
                                   stream_args, tune_args, settings)
         self.soapy_hackrf_source_0.set_sample_rate(0, samp_rate)
         self.soapy_hackrf_source_0.set_bandwidth(0, 0)
-        self.soapy_hackrf_source_0.set_frequency(0, center_frequency)
+        self.soapy_hackrf_source_0.set_frequency(0, (center_frequency+tune_hz-channel_offset_hz))
         self.soapy_hackrf_source_0.set_gain(0, 'AMP', True)
-        self.soapy_hackrf_source_0.set_gain(0, 'LNA', min(max(radio_gain_db, 0.0), 40.0))
-        self.soapy_hackrf_source_0.set_gain(0, 'VGA', min(max(16, 0.0), 62.0))
+        self.soapy_hackrf_source_0.set_gain(0, 'LNA', min(max(if_gain_db, 0.0), 40.0))
+        self.soapy_hackrf_source_0.set_gain(0, 'VGA', min(max(vga_gain_db, 0.0), 62.0))
         self.qtgui_sink_x_0_0 = qtgui.sink_c(
             1024, #fftsize
             window.WIN_BLACKMAN_hARRIS, #wintype
             center_frequency, #fc
-            samp_rate, #bw
+            baseband_rate, #bw
             "ADALM Pluto Receiver", #name
             True, #plotfreq
             True, #plotwaterfall
@@ -152,33 +164,32 @@ class harness_hackrf_rx(gr.top_block, Qt.QWidget):
             self.top_grid_layout.setRowStretch(r, 1)
         for c in range(0, 5):
             self.top_grid_layout.setColumnStretch(c, 1)
-        self._enable_agc_choices = {'Pressed': 0, 'Released': 1}
-
-        _enable_agc_toggle_switch = qtgui.GrToggleSwitch(self.set_enable_agc, 'Enable AGC', self._enable_agc_choices, True, "green", "gray", 4, 50, 1, 1, self, 'value')
-        self.enable_agc = _enable_agc_toggle_switch
-
-        self.top_grid_layout.addWidget(_enable_agc_toggle_switch, 0, 1, 1, 1)
-        for r in range(0, 1):
-            self.top_grid_layout.setRowStretch(r, 1)
-        for c in range(1, 2):
-            self.top_grid_layout.setColumnStretch(c, 1)
+        self.pfb_arb_resampler_xxx_0 = pfb.arb_resampler_ccf(
+            (baseband_rate/samp_rate ),
+            taps=None,
+            flt_size=16,
+            atten=100)
+        self.pfb_arb_resampler_xxx_0.declare_sample_delay(0)
         self.blocks_selector_0_1 = blocks.selector(gr.sizeof_gr_complex*1,0,enable_rx)
         self.blocks_selector_0_1.set_enabled(True)
         self.blocks_selector_0_0_0 = blocks.selector(gr.sizeof_gr_complex*1,0,enable_zmq)
         self.blocks_selector_0_0_0.set_enabled(True)
         self.blocks_null_sink_0_1 = blocks.null_sink(gr.sizeof_gr_complex*1)
         self.blocks_null_sink_0_0_0 = blocks.null_sink(gr.sizeof_gr_complex*1)
+        self.blocks_freqshift_cc_0 = blocks.rotator_cc(2.0*math.pi*(-channel_offset_hz)/samp_rate)
 
 
         ##################################################
         # Connections
         ##################################################
+        self.connect((self.blocks_freqshift_cc_0, 0), (self.pfb_arb_resampler_xxx_0, 0))
         self.connect((self.blocks_selector_0_0_0, 0), (self.blocks_null_sink_0_0_0, 0))
         self.connect((self.blocks_selector_0_0_0, 1), (self.zeromq_push_sink_0_0, 0))
         self.connect((self.blocks_selector_0_1, 0), (self.blocks_null_sink_0_1, 0))
         self.connect((self.blocks_selector_0_1, 1), (self.qtgui_sink_x_0_0, 0))
-        self.connect((self.soapy_hackrf_source_0, 0), (self.blocks_selector_0_0_0, 0))
-        self.connect((self.soapy_hackrf_source_0, 0), (self.blocks_selector_0_1, 0))
+        self.connect((self.pfb_arb_resampler_xxx_0, 0), (self.blocks_selector_0_0_0, 0))
+        self.connect((self.pfb_arb_resampler_xxx_0, 0), (self.blocks_selector_0_1, 0))
+        self.connect((self.soapy_hackrf_source_0, 0), (self.blocks_freqshift_cc_0, 0))
 
 
     def closeEvent(self, event):
@@ -201,20 +212,35 @@ class harness_hackrf_rx(gr.top_block, Qt.QWidget):
     def set_zmq_base_port(self, zmq_base_port):
         self.zmq_base_port = zmq_base_port
 
+    def get_vga_gain_db(self):
+        return self.vga_gain_db
+
+    def set_vga_gain_db(self, vga_gain_db):
+        self.vga_gain_db = vga_gain_db
+        self.soapy_hackrf_source_0.set_gain(0, 'VGA', min(max(self.vga_gain_db, 0.0), 62.0))
+
+    def get_tune_hz(self):
+        return self.tune_hz
+
+    def set_tune_hz(self, tune_hz):
+        self.tune_hz = tune_hz
+        self.soapy_hackrf_source_0.set_frequency(0, (self.center_frequency+self.tune_hz-self.channel_offset_hz))
+
     def get_samp_rate(self):
         return self.samp_rate
 
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
-        self.qtgui_sink_x_0_0.set_frequency_range(self.center_frequency, self.samp_rate)
+        self.blocks_freqshift_cc_0.set_phase_inc(2.0*math.pi*(-self.channel_offset_hz)/self.samp_rate)
+        self.pfb_arb_resampler_xxx_0.set_rate((self.baseband_rate/self.samp_rate ))
         self.soapy_hackrf_source_0.set_sample_rate(0, self.samp_rate)
 
-    def get_radio_gain_db(self):
-        return self.radio_gain_db
+    def get_if_gain_db(self):
+        return self.if_gain_db
 
-    def set_radio_gain_db(self, radio_gain_db):
-        self.radio_gain_db = radio_gain_db
-        self.soapy_hackrf_source_0.set_gain(0, 'LNA', min(max(self.radio_gain_db, 0.0), 40.0))
+    def set_if_gain_db(self, if_gain_db):
+        self.if_gain_db = if_gain_db
+        self.soapy_hackrf_source_0.set_gain(0, 'LNA', min(max(self.if_gain_db, 0.0), 40.0))
 
     def get_enable_zmq(self):
         return self.enable_zmq
@@ -230,19 +256,29 @@ class harness_hackrf_rx(gr.top_block, Qt.QWidget):
         self.enable_rx = enable_rx
         self.blocks_selector_0_1.set_output_index(self.enable_rx)
 
-    def get_enable_agc(self):
-        return self.enable_agc
+    def get_channel_offset_hz(self):
+        return self.channel_offset_hz
 
-    def set_enable_agc(self, enable_agc):
-        self.enable_agc = enable_agc
+    def set_channel_offset_hz(self, channel_offset_hz):
+        self.channel_offset_hz = channel_offset_hz
+        self.blocks_freqshift_cc_0.set_phase_inc(2.0*math.pi*(-self.channel_offset_hz)/self.samp_rate)
+        self.soapy_hackrf_source_0.set_frequency(0, (self.center_frequency+self.tune_hz-self.channel_offset_hz))
 
     def get_center_frequency(self):
         return self.center_frequency
 
     def set_center_frequency(self, center_frequency):
         self.center_frequency = center_frequency
-        self.qtgui_sink_x_0_0.set_frequency_range(self.center_frequency, self.samp_rate)
-        self.soapy_hackrf_source_0.set_frequency(0, self.center_frequency)
+        self.qtgui_sink_x_0_0.set_frequency_range(self.center_frequency, self.baseband_rate)
+        self.soapy_hackrf_source_0.set_frequency(0, (self.center_frequency+self.tune_hz-self.channel_offset_hz))
+
+    def get_baseband_rate(self):
+        return self.baseband_rate
+
+    def set_baseband_rate(self, baseband_rate):
+        self.baseband_rate = baseband_rate
+        self.pfb_arb_resampler_xxx_0.set_rate((self.baseband_rate/self.samp_rate ))
+        self.qtgui_sink_x_0_0.set_frequency_range(self.center_frequency, self.baseband_rate)
 
 
 

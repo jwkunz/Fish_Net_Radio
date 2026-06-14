@@ -15,6 +15,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import QObject, pyqtSlot
 from gnuradio import analog
 from gnuradio import blocks
+import math
 from gnuradio import gr
 from gnuradio.filter import firdes
 from gnuradio.fft import window
@@ -26,6 +27,7 @@ from gnuradio.eng_arg import eng_float, intx
 from gnuradio import eng_notation
 from gnuradio import iio
 from gnuradio import zeromq
+from gnuradio.filter import pfb
 import sip
 import threading
 
@@ -75,12 +77,14 @@ class harness_pluto_tx(gr.top_block, Qt.QWidget):
         self.waveform = waveform = 1
         self.samp_rate = samp_rate = int(1E6)
         self.radio_source = radio_source = 2
-        self.radio_attenuation_db = radio_attenuation_db = 10
+        self.radio_attenuation_db = radio_attenuation_db = 0
         self.pluto_uri = pluto_uri = iio.get_pluto_uri()
         self.gain_db = gain_db = 0
         self.enable_tx = enable_tx = 1
         self.enable_gui = enable_gui = 1
+        self.channel_offset_hz = channel_offset_hz = int(200E3)
         self.center_frequency = center_frequency = 915E6
+        self.baseband_rate = baseband_rate = int(96E3)
 
         ##################################################
         # Blocks
@@ -147,8 +151,8 @@ class harness_pluto_tx(gr.top_block, Qt.QWidget):
             self.top_grid_layout.setRowStretch(r, 1)
         for c in range(4, 5):
             self.top_grid_layout.setColumnStretch(c, 1)
-        self._radio_attenuation_db_range = qtgui.Range(0, 40, 3, 10, 200)
-        self._radio_attenuation_db_win = qtgui.RangeWidget(self._radio_attenuation_db_range, self.set_radio_attenuation_db, "Radio Gain (dB)", "counter_slider", float, QtCore.Qt.Horizontal)
+        self._radio_attenuation_db_range = qtgui.Range(0, 40, 3, 0, 200)
+        self._radio_attenuation_db_win = qtgui.RangeWidget(self._radio_attenuation_db_range, self.set_radio_attenuation_db, "Radio Attenuation (dB)", "counter_slider", float, QtCore.Qt.Horizontal)
         self.top_grid_layout.addWidget(self._radio_attenuation_db_win, 1, 3, 1, 1)
         for r in range(1, 2):
             self.top_grid_layout.setRowStretch(r, 1)
@@ -195,10 +199,10 @@ class harness_pluto_tx(gr.top_block, Qt.QWidget):
         self.qtgui_sink_x_0 = qtgui.sink_c(
             1024, #fftsize
             window.WIN_BLACKMAN_hARRIS, #wintype
-            center_frequency, #fc
+            (center_frequency-channel_offset_hz), #fc
             samp_rate, #bw
             "ADALM Pluto Receiver", #name
-            False, #plotfreq
+            True, #plotfreq
             True, #plotwaterfall
             True, #plottime
             True, #plotconst
@@ -214,10 +218,16 @@ class harness_pluto_tx(gr.top_block, Qt.QWidget):
             self.top_grid_layout.setRowStretch(r, 1)
         for c in range(0, 3):
             self.top_grid_layout.setColumnStretch(c, 1)
-        self.iio_pluto_sink_0 = iio.fmcomms2_sink_fc32(pluto_uri if pluto_uri else iio.get_pluto_uri(), [True, True], (int(samp_rate*5)), False)
+        self.pfb_arb_resampler_xxx_0 = pfb.arb_resampler_ccf(
+            (samp_rate / baseband_rate),
+            taps=None,
+            flt_size=16,
+            atten=100)
+        self.pfb_arb_resampler_xxx_0.declare_sample_delay(0)
+        self.iio_pluto_sink_0 = iio.fmcomms2_sink_fc32(pluto_uri if pluto_uri else iio.get_pluto_uri(), [True, True], int(samp_rate), False)
         self.iio_pluto_sink_0.set_len_tag_key('')
         self.iio_pluto_sink_0.set_bandwidth(20000000)
-        self.iio_pluto_sink_0.set_frequency(int(center_frequency))
+        self.iio_pluto_sink_0.set_frequency((int(center_frequency-channel_offset_hz)))
         self.iio_pluto_sink_0.set_samplerate(int(samp_rate))
         self.iio_pluto_sink_0.set_attenuation(0, radio_attenuation_db)
         self.iio_pluto_sink_0.set_filter_params('Auto', '', 0, 0)
@@ -233,11 +243,12 @@ class harness_pluto_tx(gr.top_block, Qt.QWidget):
         self.blocks_null_sink_0_0 = blocks.null_sink(gr.sizeof_gr_complex*1)
         self.blocks_null_sink_0 = blocks.null_sink(gr.sizeof_gr_complex*1)
         self.blocks_multiply_const_xx_0 = blocks.multiply_const_cc(10**(gain_db/20), 1)
-        self.analog_sig_source_x_0_0_0_0_0 = analog.sig_source_c(samp_rate, analog.GR_CONST_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
-        self.analog_sig_source_x_0_0_0_0 = analog.sig_source_c(samp_rate, analog.GR_SAW_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
-        self.analog_sig_source_x_0_0_0 = analog.sig_source_c(samp_rate, analog.GR_TRI_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
-        self.analog_sig_source_x_0_0 = analog.sig_source_c(samp_rate, analog.GR_SQR_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
-        self.analog_sig_source_x_0 = analog.sig_source_c(samp_rate, analog.GR_COS_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
+        self.blocks_freqshift_cc_0 = blocks.rotator_cc(2.0*math.pi*channel_offset_hz/samp_rate)
+        self.analog_sig_source_x_0_0_0_0_0 = analog.sig_source_c(baseband_rate, analog.GR_CONST_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
+        self.analog_sig_source_x_0_0_0_0 = analog.sig_source_c(baseband_rate, analog.GR_SAW_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
+        self.analog_sig_source_x_0_0_0 = analog.sig_source_c(baseband_rate, analog.GR_TRI_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
+        self.analog_sig_source_x_0_0 = analog.sig_source_c(baseband_rate, analog.GR_SQR_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
+        self.analog_sig_source_x_0 = analog.sig_source_c(baseband_rate, analog.GR_COS_WAVE, waveform_frequency, 1.0, waveform_offset, (waveform_phase*2.0*357/113))
         self.analog_noise_source_x_0 = analog.noise_source_c(analog.GR_GAUSSIAN, 1, 0)
 
 
@@ -250,6 +261,7 @@ class harness_pluto_tx(gr.top_block, Qt.QWidget):
         self.connect((self.analog_sig_source_x_0_0_0, 0), (self.blocks_selector_1_0, 3))
         self.connect((self.analog_sig_source_x_0_0_0_0, 0), (self.blocks_selector_1_0, 4))
         self.connect((self.analog_sig_source_x_0_0_0_0_0, 0), (self.blocks_selector_1_0, 0))
+        self.connect((self.blocks_freqshift_cc_0, 0), (self.blocks_multiply_const_xx_0, 0))
         self.connect((self.blocks_multiply_const_xx_0, 0), (self.blocks_selector_0, 0))
         self.connect((self.blocks_multiply_const_xx_0, 0), (self.blocks_selector_0_0, 0))
         self.connect((self.blocks_null_source_0, 0), (self.blocks_selector_1, 0))
@@ -257,8 +269,9 @@ class harness_pluto_tx(gr.top_block, Qt.QWidget):
         self.connect((self.blocks_selector_0, 1), (self.qtgui_sink_x_0, 0))
         self.connect((self.blocks_selector_0_0, 0), (self.blocks_null_sink_0_0, 0))
         self.connect((self.blocks_selector_0_0, 1), (self.iio_pluto_sink_0, 0))
-        self.connect((self.blocks_selector_1, 0), (self.blocks_multiply_const_xx_0, 0))
+        self.connect((self.blocks_selector_1, 0), (self.pfb_arb_resampler_xxx_0, 0))
         self.connect((self.blocks_selector_1_0, 0), (self.blocks_selector_1, 1))
+        self.connect((self.pfb_arb_resampler_xxx_0, 0), (self.blocks_freqshift_cc_0, 0))
         self.connect((self.zeromq_pull_source_0, 0), (self.blocks_selector_1, 2))
 
 
@@ -328,13 +341,10 @@ class harness_pluto_tx(gr.top_block, Qt.QWidget):
 
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
-        self.analog_sig_source_x_0.set_sampling_freq(self.samp_rate)
-        self.analog_sig_source_x_0_0.set_sampling_freq(self.samp_rate)
-        self.analog_sig_source_x_0_0_0.set_sampling_freq(self.samp_rate)
-        self.analog_sig_source_x_0_0_0_0.set_sampling_freq(self.samp_rate)
-        self.analog_sig_source_x_0_0_0_0_0.set_sampling_freq(self.samp_rate)
+        self.blocks_freqshift_cc_0.set_phase_inc(2.0*math.pi*self.channel_offset_hz/self.samp_rate)
         self.iio_pluto_sink_0.set_samplerate(int(self.samp_rate))
-        self.qtgui_sink_x_0.set_frequency_range(self.center_frequency, self.samp_rate)
+        self.pfb_arb_resampler_xxx_0.set_rate((self.samp_rate / self.baseband_rate))
+        self.qtgui_sink_x_0.set_frequency_range((self.center_frequency-self.channel_offset_hz), self.samp_rate)
 
     def get_radio_source(self):
         return self.radio_source
@@ -378,13 +388,34 @@ class harness_pluto_tx(gr.top_block, Qt.QWidget):
         self.enable_gui = enable_gui
         self.blocks_selector_0.set_output_index(self.enable_gui)
 
+    def get_channel_offset_hz(self):
+        return self.channel_offset_hz
+
+    def set_channel_offset_hz(self, channel_offset_hz):
+        self.channel_offset_hz = channel_offset_hz
+        self.blocks_freqshift_cc_0.set_phase_inc(2.0*math.pi*self.channel_offset_hz/self.samp_rate)
+        self.iio_pluto_sink_0.set_frequency((int(self.center_frequency-self.channel_offset_hz)))
+        self.qtgui_sink_x_0.set_frequency_range((self.center_frequency-self.channel_offset_hz), self.samp_rate)
+
     def get_center_frequency(self):
         return self.center_frequency
 
     def set_center_frequency(self, center_frequency):
         self.center_frequency = center_frequency
-        self.iio_pluto_sink_0.set_frequency(int(self.center_frequency))
-        self.qtgui_sink_x_0.set_frequency_range(self.center_frequency, self.samp_rate)
+        self.iio_pluto_sink_0.set_frequency((int(self.center_frequency-self.channel_offset_hz)))
+        self.qtgui_sink_x_0.set_frequency_range((self.center_frequency-self.channel_offset_hz), self.samp_rate)
+
+    def get_baseband_rate(self):
+        return self.baseband_rate
+
+    def set_baseband_rate(self, baseband_rate):
+        self.baseband_rate = baseband_rate
+        self.analog_sig_source_x_0.set_sampling_freq(self.baseband_rate)
+        self.analog_sig_source_x_0_0.set_sampling_freq(self.baseband_rate)
+        self.analog_sig_source_x_0_0_0.set_sampling_freq(self.baseband_rate)
+        self.analog_sig_source_x_0_0_0_0.set_sampling_freq(self.baseband_rate)
+        self.analog_sig_source_x_0_0_0_0_0.set_sampling_freq(self.baseband_rate)
+        self.pfb_arb_resampler_xxx_0.set_rate((self.samp_rate / self.baseband_rate))
 
 
 

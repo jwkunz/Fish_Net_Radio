@@ -13,6 +13,7 @@ from PyQt5 import Qt
 from gnuradio import qtgui
 from PyQt5 import QtCore
 from gnuradio import blocks
+import math
 from gnuradio import gr
 from gnuradio.filter import firdes
 from gnuradio.fft import window
@@ -24,6 +25,7 @@ from gnuradio.eng_arg import eng_float, intx
 from gnuradio import eng_notation
 from gnuradio import soapy
 from gnuradio import zeromq
+from gnuradio.filter import pfb
 import sip
 import threading
 
@@ -68,17 +70,19 @@ class harness_pluto_rx(gr.top_block, Qt.QWidget):
         self.zmq_push_offset = zmq_push_offset = 1
         self.zmq_base_port = zmq_base_port = 20000
         self.samp_rate = samp_rate = int(2E6)
-        self.radio_gain_db = radio_gain_db = 20
+        self.radio_gain_db = radio_gain_db = 60
         self.enable_zmq = enable_zmq = 0
         self.enable_rx = enable_rx = 1
         self.enable_agc = enable_agc = 0
+        self.channel_offset_hz = channel_offset_hz = int(200E3)
         self.center_frequency = center_frequency = 915E6
+        self.baseband_rate = baseband_rate = int(96E3)
 
         ##################################################
         # Blocks
         ##################################################
 
-        self._radio_gain_db_range = qtgui.Range(0, 73, 3, 20, 200)
+        self._radio_gain_db_range = qtgui.Range(0, 73, 3, 60, 200)
         self._radio_gain_db_win = qtgui.RangeWidget(self._radio_gain_db_range, self.set_radio_gain_db, "Radio Gain (dB)", "counter_slider", float, QtCore.Qt.Horizontal)
         self.top_grid_layout.addWidget(self._radio_gain_db_win, 0, 2, 1, 1)
         for r in range(0, 1):
@@ -137,13 +141,13 @@ class harness_pluto_rx(gr.top_block, Qt.QWidget):
         self.soapy_plutosdr_source_0.set_sample_rate(0, samp_rate)
         self.soapy_plutosdr_source_0.set_bandwidth(0, 0.0)
         self.soapy_plutosdr_source_0.set_gain_mode(0, enable_agc)
-        self.soapy_plutosdr_source_0.set_frequency(0, center_frequency)
+        self.soapy_plutosdr_source_0.set_frequency(0, (center_frequency-channel_offset_hz))
         self.soapy_plutosdr_source_0.set_gain(0, min(max(radio_gain_db, 0.0), 73.0))
         self.qtgui_sink_x_0_0 = qtgui.sink_c(
             1024, #fftsize
             window.WIN_BLACKMAN_hARRIS, #wintype
             center_frequency, #fc
-            samp_rate, #bw
+            baseband_rate, #bw
             "ADALM Pluto Receiver", #name
             True, #plotfreq
             True, #plotwaterfall
@@ -161,23 +165,32 @@ class harness_pluto_rx(gr.top_block, Qt.QWidget):
             self.top_grid_layout.setRowStretch(r, 1)
         for c in range(0, 5):
             self.top_grid_layout.setColumnStretch(c, 1)
+        self.pfb_arb_resampler_xxx_0 = pfb.arb_resampler_ccf(
+            (baseband_rate/samp_rate ),
+            taps=None,
+            flt_size=16,
+            atten=100)
+        self.pfb_arb_resampler_xxx_0.declare_sample_delay(0)
         self.blocks_selector_0_1 = blocks.selector(gr.sizeof_gr_complex*1,0,enable_rx)
         self.blocks_selector_0_1.set_enabled(True)
         self.blocks_selector_0_0_0 = blocks.selector(gr.sizeof_gr_complex*1,0,enable_zmq)
         self.blocks_selector_0_0_0.set_enabled(True)
         self.blocks_null_sink_0_1 = blocks.null_sink(gr.sizeof_gr_complex*1)
         self.blocks_null_sink_0_0_0 = blocks.null_sink(gr.sizeof_gr_complex*1)
+        self.blocks_freqshift_cc_0 = blocks.rotator_cc(2.0*math.pi*(-channel_offset_hz)/samp_rate)
 
 
         ##################################################
         # Connections
         ##################################################
+        self.connect((self.blocks_freqshift_cc_0, 0), (self.pfb_arb_resampler_xxx_0, 0))
         self.connect((self.blocks_selector_0_0_0, 0), (self.blocks_null_sink_0_0_0, 0))
         self.connect((self.blocks_selector_0_0_0, 1), (self.zeromq_push_sink_0_0, 0))
         self.connect((self.blocks_selector_0_1, 0), (self.blocks_null_sink_0_1, 0))
         self.connect((self.blocks_selector_0_1, 1), (self.qtgui_sink_x_0_0, 0))
-        self.connect((self.soapy_plutosdr_source_0, 0), (self.blocks_selector_0_0_0, 0))
-        self.connect((self.soapy_plutosdr_source_0, 0), (self.blocks_selector_0_1, 0))
+        self.connect((self.pfb_arb_resampler_xxx_0, 0), (self.blocks_selector_0_0_0, 0))
+        self.connect((self.pfb_arb_resampler_xxx_0, 0), (self.blocks_selector_0_1, 0))
+        self.connect((self.soapy_plutosdr_source_0, 0), (self.blocks_freqshift_cc_0, 0))
 
 
     def closeEvent(self, event):
@@ -205,7 +218,8 @@ class harness_pluto_rx(gr.top_block, Qt.QWidget):
 
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
-        self.qtgui_sink_x_0_0.set_frequency_range(self.center_frequency, self.samp_rate)
+        self.blocks_freqshift_cc_0.set_phase_inc(2.0*math.pi*(-self.channel_offset_hz)/self.samp_rate)
+        self.pfb_arb_resampler_xxx_0.set_rate((self.baseband_rate/self.samp_rate ))
         self.soapy_plutosdr_source_0.set_sample_rate(0, self.samp_rate)
 
     def get_radio_gain_db(self):
@@ -236,13 +250,29 @@ class harness_pluto_rx(gr.top_block, Qt.QWidget):
         self.enable_agc = enable_agc
         self.soapy_plutosdr_source_0.set_gain_mode(0, self.enable_agc)
 
+    def get_channel_offset_hz(self):
+        return self.channel_offset_hz
+
+    def set_channel_offset_hz(self, channel_offset_hz):
+        self.channel_offset_hz = channel_offset_hz
+        self.blocks_freqshift_cc_0.set_phase_inc(2.0*math.pi*(-self.channel_offset_hz)/self.samp_rate)
+        self.soapy_plutosdr_source_0.set_frequency(0, (self.center_frequency-self.channel_offset_hz))
+
     def get_center_frequency(self):
         return self.center_frequency
 
     def set_center_frequency(self, center_frequency):
         self.center_frequency = center_frequency
-        self.qtgui_sink_x_0_0.set_frequency_range(self.center_frequency, self.samp_rate)
-        self.soapy_plutosdr_source_0.set_frequency(0, self.center_frequency)
+        self.qtgui_sink_x_0_0.set_frequency_range(self.center_frequency, self.baseband_rate)
+        self.soapy_plutosdr_source_0.set_frequency(0, (self.center_frequency-self.channel_offset_hz))
+
+    def get_baseband_rate(self):
+        return self.baseband_rate
+
+    def set_baseband_rate(self, baseband_rate):
+        self.baseband_rate = baseband_rate
+        self.pfb_arb_resampler_xxx_0.set_rate((self.baseband_rate/self.samp_rate ))
+        self.qtgui_sink_x_0_0.set_frequency_range(self.center_frequency, self.baseband_rate)
 
 
 

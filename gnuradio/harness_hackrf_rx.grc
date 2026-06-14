@@ -33,6 +33,18 @@ options:
     state: enabled
 
 blocks:
+- name: baseband_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: int(96E3)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [384, 128.0]
+    rotation: 0
+    state: enabled
 - name: center_frequency
   id: qtgui_msgdigitalnumbercontrol
   parameters:
@@ -40,7 +52,7 @@ blocks:
     affinity: ''
     alias: ''
     comment: ''
-    gui_hint: 0,4,1,1
+    gui_hint: 0,5,1,1
     lbl: Carrier Frequency
     maxFreqHz: 928E6
     maxoutbuf: '0'
@@ -58,28 +70,16 @@ blocks:
     coordinate: [344, 8.0]
     rotation: 0
     state: enabled
-- name: enable_agc
-  id: variable_qtgui_toggle_switch
+- name: channel_offset_hz
+  id: variable
   parameters:
-    cellalignment: '1'
     comment: ''
-    gui_hint: 0,1,1,1
-    initPressed: 'True'
-    label: Enable AGC
-    outputmsgname: value
-    position: '4'
-    pressed: '0'
-    released: '1'
-    switchOffBackground: gray
-    switchOnBackground: green
-    type: int
-    value: '0'
-    verticalalignment: '1'
+    value: int(200E3)
   states:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [848, 24.0]
+    coordinate: [360, 200.0]
     rotation: 0
     state: enabled
 - name: enable_rx
@@ -111,8 +111,8 @@ blocks:
   parameters:
     cellalignment: '1'
     comment: ''
-    gui_hint: 0,3,1,1
-    initPressed: 'True'
+    gui_hint: 0,4,1,1
+    initPressed: 'False'
     label: f"Enable ZMQ Port {zmq_base_port+zmq_push_offset}"
     outputmsgname: value
     position: '4'
@@ -121,7 +121,7 @@ blocks:
     switchOffBackground: gray
     switchOnBackground: green
     type: int
-    value: '1'
+    value: '0'
     verticalalignment: '1'
   states:
     bus_sink: false
@@ -130,19 +130,19 @@ blocks:
     coordinate: [632, 168.0]
     rotation: 0
     state: enabled
-- name: radio_gain_db
+- name: if_gain_db
   id: variable_qtgui_range
   parameters:
     comment: ''
     gui_hint: 0,2,1,1
-    label: Radio Gain (dB)
+    label: IF Gain (dB)
     min_len: '200'
     orient: QtCore.Qt.Horizontal
     rangeType: float
     start: '0'
     step: '3'
     stop: '40'
-    value: '20'
+    value: '3'
     widget: counter_slider
   states:
     bus_sink: false
@@ -161,6 +161,39 @@ blocks:
     bus_source: false
     bus_structure: null
     coordinate: [200, 12]
+    rotation: 0
+    state: enabled
+- name: tune_hz
+  id: variable
+  parameters:
+    comment: ''
+    value: '-21000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1208, 112.0]
+    rotation: 0
+    state: enabled
+- name: vga_gain_db
+  id: variable_qtgui_range
+  parameters:
+    comment: ''
+    gui_hint: 0,3,1,1
+    label: VGA Gain (dB)
+    min_len: '200'
+    orient: QtCore.Qt.Horizontal
+    rangeType: float
+    start: '0'
+    step: '3'
+    stop: '62'
+    value: '57'
+    widget: counter_slider
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1048, 256.0]
     rotation: 0
     state: enabled
 - name: zmq_base_port
@@ -187,6 +220,23 @@ blocks:
     coordinate: [1320, 32.0]
     rotation: 0
     state: enabled
+- name: blocks_freqshift_cc_0
+  id: blocks_freqshift_cc
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    freq: -channel_offset_hz
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    sample_rate: samp_rate
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [896, 568.0]
+    rotation: 0
+    state: enabled
 - name: blocks_null_sink_0_0_0
   id: blocks_null_sink
   parameters:
@@ -201,7 +251,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [768, 640.0]
+    coordinate: [1648, 640.0]
     rotation: 0
     state: enabled
 - name: blocks_null_sink_0_1
@@ -218,7 +268,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [792, 392.0]
+    coordinate: [1672, 392.0]
     rotation: 0
     state: enabled
 - name: blocks_selector_0_0_0
@@ -241,7 +291,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [552, 616.0]
+    coordinate: [1432, 616.0]
     rotation: 0
     state: enabled
 - name: blocks_selector_0_1
@@ -264,7 +314,28 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [552, 488.0]
+    coordinate: [1432, 488.0]
+    rotation: 0
+    state: enabled
+- name: pfb_arb_resampler_xxx_0
+  id: pfb_arb_resampler_xxx
+  parameters:
+    affinity: ''
+    alias: ''
+    atten: '100'
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    nfilts: '16'
+    rrate: 'baseband_rate/samp_rate '
+    samp_delay: '0'
+    taps: ''
+    type: ccf
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [1096, 552.0]
     rotation: 0
     state: enabled
 - name: qtgui_sink_x_0_0
@@ -272,7 +343,7 @@ blocks:
   parameters:
     affinity: ''
     alias: ''
-    bw: samp_rate
+    bw: baseband_rate
     comment: ''
     fc: center_frequency
     fftsize: '1024'
@@ -293,7 +364,7 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [824, 440.0]
+    coordinate: [1704, 440.0]
     rotation: 0
     state: enabled
 - name: soapy_hackrf_source_0
@@ -303,20 +374,20 @@ blocks:
     alias: ''
     amp: 'True'
     bandwidth: '0'
-    center_freq: center_frequency
+    center_freq: center_frequency+tune_hz-channel_offset_hz
     comment: ''
     dev_args: ''
-    gain: radio_gain_db
+    gain: if_gain_db
     maxoutbuf: '0'
     minoutbuf: '0'
     samp_rate: samp_rate
     type: fc32
-    vga: '16'
+    vga: vga_gain_db
   states:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [304, 536.0]
+    coordinate: [688, 568.0]
     rotation: 0
     state: enabled
 - name: zeromq_push_sink_0_0
@@ -336,17 +407,19 @@ blocks:
     bus_sink: false
     bus_source: false
     bus_structure: null
-    coordinate: [760, 688.0]
+    coordinate: [1640, 688.0]
     rotation: 0
     state: enabled
 
 connections:
+- [blocks_freqshift_cc_0, '0', pfb_arb_resampler_xxx_0, '0']
 - [blocks_selector_0_0_0, '0', blocks_null_sink_0_0_0, '0']
 - [blocks_selector_0_0_0, '1', zeromq_push_sink_0_0, '0']
 - [blocks_selector_0_1, '0', blocks_null_sink_0_1, '0']
 - [blocks_selector_0_1, '1', qtgui_sink_x_0_0, '0']
-- [soapy_hackrf_source_0, '0', blocks_selector_0_0_0, '0']
-- [soapy_hackrf_source_0, '0', blocks_selector_0_1, '0']
+- [pfb_arb_resampler_xxx_0, '0', blocks_selector_0_0_0, '0']
+- [pfb_arb_resampler_xxx_0, '0', blocks_selector_0_1, '0']
+- [soapy_hackrf_source_0, '0', blocks_freqshift_cc_0, '0']
 
 metadata:
   file_format: 1
